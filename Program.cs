@@ -1,5 +1,6 @@
 
 using InfinityCodexWebApp;
+using InfinityCodexWebApp.Authorization;
 using InfinityCodexWebApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore;
@@ -22,6 +23,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddRoleBasedPolicies();
+});
 
 var app = builder.Build();
 
@@ -32,6 +37,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
     .WithName("HealthCheck");
