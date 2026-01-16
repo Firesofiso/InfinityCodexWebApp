@@ -1,0 +1,73 @@
+# .gitignore for ASP.NET Core / .NET projects
+# Build results
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Visual Studio Code
+.vscode/
+
+# Rider
+.idea/
+
+# Logs
+*.log
+
+# NuGet
+*.nupkg
+# Packages folder can be ignored if using PackageReference
+packages/
+# NuGet v3's project.json files produces this folder
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Others
+*.dbmdl
+*.bak
+*.backup
+*.mdf
+*.ldf
+
+# Publish
+publish/
+
+# Azure
+.scm/
+
+# Local test results
+TestResults/
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# dotCover
+*.dotCover
+
+# NCrunch
+*.ncrunch*
+.*crunch*.local.xml
+
+# SonarQube
+.sonar/
+
+# Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# VS Code settings
+.history/
