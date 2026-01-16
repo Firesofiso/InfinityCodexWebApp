@@ -33,6 +33,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
+    .WithName("HealthCheck");
+
 app.MapControllers();
 
 app.Run();
