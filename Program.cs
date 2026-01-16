@@ -6,8 +6,18 @@ using Swashbuckle.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var dbProvider = builder.Configuration.GetValue<string>("Database:Provider") ?? "Sqlite";
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    switch (dbProvider.Trim().ToLowerInvariant())
+    {
+        case "sqlite":
+            options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
+            break;
+        default:
+            throw new InvalidOperationException($"Unsupported database provider: {dbProvider}");
+    }
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
