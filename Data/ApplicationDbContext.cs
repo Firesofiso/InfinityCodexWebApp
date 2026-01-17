@@ -6,5 +6,31 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<Character> Characters => Set<Character>();
+    public DbSet<CharacterJob> CharacterJobs => Set<CharacterJob>();
+    public DbSet<CharacterItem> CharacterItems => Set<CharacterItem>();
     public DbSet<WeatherForecast> WeatherForecasts => Set<WeatherForecast>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Character>(entity =>
+        {
+            entity.HasIndex(character => new { character.OwnerUserId, character.Name })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<CharacterJob>(entity =>
+        {
+            entity.HasIndex(characterJob => new { characterJob.CharacterId, characterJob.JobCode })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<CharacterItem>(entity =>
+        {
+            entity.HasIndex(characterItem => new { characterItem.CharacterId, characterItem.ItemId })
+                .IsUnique();
+        });
+    }
 }
