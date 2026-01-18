@@ -10,6 +10,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<CharacterJob> CharacterJobs => Set<CharacterJob>();
     public DbSet<CharacterJobLevel> CharacterJobLevels => Set<CharacterJobLevel>();
     public DbSet<CharacterItem> CharacterItems => Set<CharacterItem>();
+    public DbSet<CharacterItemNeed> CharacterItemNeeds => Set<CharacterItemNeed>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemAllowedJob> ItemAllowedJobs => Set<ItemAllowedJob>();
     public DbSet<ItemSource> ItemSources => Set<ItemSource>();
@@ -40,6 +41,12 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<CharacterItem>(entity =>
         {
             entity.HasIndex(characterItem => new { characterItem.CharacterId, characterItem.ItemId })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<CharacterItemNeed>(entity =>
+        {
+            entity.HasIndex(characterItemNeed => new { characterItemNeed.CharacterId, characterItemNeed.ItemId })
                 .IsUnique();
         });
 

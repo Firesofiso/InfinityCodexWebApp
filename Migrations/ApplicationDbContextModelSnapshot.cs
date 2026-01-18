@@ -66,6 +66,30 @@ partial class ApplicationDbContextModelSnapshot : ModelSnapshot
             b.ToTable("CharacterItems");
         });
 
+        modelBuilder.Entity("InfinityCodexWebApp.CharacterItemNeed", b =>
+        {
+            b.Property<int>("Id")
+                .ValueGeneratedOnAdd()
+                .HasColumnType("INTEGER");
+
+            b.Property<int>("CharacterId")
+                .HasColumnType("INTEGER");
+
+            b.Property<int>("ItemId")
+                .HasColumnType("INTEGER");
+
+            b.Property<string>("State")
+                .IsRequired()
+                .HasColumnType("TEXT");
+
+            b.HasKey("Id");
+
+            b.HasIndex("CharacterId", "ItemId")
+                .IsUnique();
+
+            b.ToTable("CharacterItemNeeds");
+        });
+
         modelBuilder.Entity("InfinityCodexWebApp.CharacterJob", b =>
         {
             b.Property<int>("Id")
