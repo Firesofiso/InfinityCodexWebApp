@@ -12,6 +12,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<CharacterItem> CharacterItems => Set<CharacterItem>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemAllowedJob> ItemAllowedJobs => Set<ItemAllowedJob>();
+    public DbSet<ItemSource> ItemSources => Set<ItemSource>();
     public DbSet<ContentSource> ContentSources => Set<ContentSource>();
     public DbSet<WeatherForecast> WeatherForecasts => Set<WeatherForecast>();
 
@@ -45,6 +46,11 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<ItemAllowedJob>(entity =>
         {
             entity.HasKey(itemAllowedJob => new { itemAllowedJob.ItemId, itemAllowedJob.JobCode });
+        });
+
+        modelBuilder.Entity<ItemSource>(entity =>
+        {
+            entity.HasKey(itemSource => new { itemSource.ItemId, itemSource.ContentSourceId });
         });
     }
 }
