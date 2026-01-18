@@ -8,6 +8,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<User> Users => Set<User>();
     public DbSet<Character> Characters => Set<Character>();
     public DbSet<CharacterJob> CharacterJobs => Set<CharacterJob>();
+    public DbSet<CharacterJobLevel> CharacterJobLevels => Set<CharacterJobLevel>();
     public DbSet<CharacterItem> CharacterItems => Set<CharacterItem>();
     public DbSet<WeatherForecast> WeatherForecasts => Set<WeatherForecast>();
 
@@ -25,6 +26,11 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             entity.HasIndex(characterJob => new { characterJob.CharacterId, characterJob.JobCode })
                 .IsUnique();
+        });
+
+        modelBuilder.Entity<CharacterJobLevel>(entity =>
+        {
+            entity.HasKey(characterJobLevel => new { characterJobLevel.CharacterId, characterJobLevel.JobCode });
         });
 
         modelBuilder.Entity<CharacterItem>(entity =>
