@@ -10,6 +10,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<CharacterJob> CharacterJobs => Set<CharacterJob>();
     public DbSet<CharacterJobLevel> CharacterJobLevels => Set<CharacterJobLevel>();
     public DbSet<CharacterItem> CharacterItems => Set<CharacterItem>();
+    public DbSet<Item> Items => Set<Item>();
     public DbSet<ContentSource> ContentSources => Set<ContentSource>();
     public DbSet<WeatherForecast> WeatherForecasts => Set<WeatherForecast>();
 
