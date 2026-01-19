@@ -46,4 +46,32 @@ public class AuthController : ControllerBase
         var redirectUrl = QueryHelpers.AddQueryString(DiscordAuthorizationUrl, queryParams);
         return Redirect(redirectUrl);
     }
+
+    [HttpGet("callback")]
+    public IActionResult DiscordCallback(
+        [FromQuery] string? code = null,
+        [FromQuery] string? state = null,
+        [FromQuery] string? error = null,
+        [FromQuery(Name = "error_description")] string? errorDescription = null)
+    {
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            var message = string.IsNullOrWhiteSpace(errorDescription)
+                ? $"Discord OAuth error: {error}."
+                : $"Discord OAuth error: {error}. {errorDescription}";
+
+            return Problem(message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return Problem("Discord OAuth code is missing.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        return Ok(new
+        {
+            Code = code,
+            State = state
+        });
+    }
 }
