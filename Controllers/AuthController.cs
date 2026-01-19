@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -12,11 +14,14 @@ namespace InfinityCodexWebApp.Controllers;
 public class AuthController : ControllerBase
 {
     private const string DiscordAuthorizationUrl = "https://discord.com/oauth2/authorize";
+    private const string DiscordUserUrl = "https://discord.com/api/users/@me";
     private readonly IConfiguration _configuration;
+    private readonly HttpClient _httpClient;
 
-    public AuthController(IConfiguration configuration)
+    public AuthController(IConfiguration configuration, HttpClient httpClient)
     {
         _configuration = configuration;
+        _httpClient = httpClient;
     }
 
     [HttpGet("login")]
@@ -73,5 +78,69 @@ public class AuthController : ControllerBase
             Code = code,
             State = state
         });
+    }
+
+    [HttpGet("/auth/me")]
+    public async Task<IActionResult> DiscordMe([FromQuery(Name = "access_token")] string? accessToken = null)
+    {
+        var token = ResolveAccessToken(accessToken);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return Problem("Discord access token is missing.", statusCode: StatusCodes.Status401Unauthorized);
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, DiscordUserUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await _httpClient.SendAsync(request);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return StatusCode((int)response.StatusCode, new
+            {
+                Error = "Discord API request failed.",
+                Status = (int)response.StatusCode,
+                Details = responseBody
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return Ok();
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(responseBody);
+            return Ok(document.RootElement.Clone());
+        }
+        catch (JsonException)
+        {
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+            return Content(responseBody, contentType);
+        }
+    }
+
+    private string? ResolveAccessToken(string? accessToken)
+    {
+        if (!string.IsNullOrWhiteSpace(accessToken))
+        {
+            return accessToken;
+        }
+
+        if (!Request.Headers.TryGetValue("Authorization", out var authHeader))
+        {
+            return null;
+        }
+
+        var headerValue = authHeader.ToString();
+        const string bearerPrefix = "Bearer ";
+        if (headerValue.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return headerValue[bearerPrefix.Length..].Trim();
+        }
+
+        return null;
     }
 }
