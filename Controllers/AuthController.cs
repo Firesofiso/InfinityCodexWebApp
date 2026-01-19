@@ -15,6 +15,7 @@ public class AuthController : ControllerBase
 {
     private const string DiscordAuthorizationUrl = "https://discord.com/oauth2/authorize";
     private const string DiscordUserUrl = "https://discord.com/api/users/@me";
+    private const string DiscordTokenRevokeUrl = "https://discord.com/api/oauth2/token/revoke";
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
 
@@ -142,5 +143,57 @@ public class AuthController : ControllerBase
         }
 
         return null;
+    }
+
+    [HttpPost("/auth/logout")]
+    public async Task<IActionResult> DiscordLogout(
+        [FromQuery(Name = "access_token")] string? accessToken = null,
+        [FromQuery(Name = "token_type_hint")] string? tokenTypeHint = null)
+    {
+        var token = ResolveAccessToken(accessToken);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return Problem("Discord access token is missing.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var clientId = _configuration["DiscordOAuth:ClientId"];
+        var clientSecret = _configuration["DiscordOAuth:ClientSecret"];
+
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
+        {
+            return Problem("Discord OAuth client credentials are missing.", statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        var resolvedTokenTypeHint = string.IsNullOrWhiteSpace(tokenTypeHint) ? "access_token" : tokenTypeHint;
+        using var revokeRequest = new HttpRequestMessage(HttpMethod.Post, DiscordTokenRevokeUrl)
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = clientId,
+                ["client_secret"] = clientSecret,
+                ["token"] = token,
+                ["token_type_hint"] = resolvedTokenTypeHint
+            })
+        };
+
+        using var response = await _httpClient.SendAsync(revokeRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return StatusCode((int)response.StatusCode, new
+            {
+                Error = "Discord token revocation failed.",
+                Status = (int)response.StatusCode,
+                Details = responseBody
+            });
+        }
+
+        return Ok(new
+        {
+            Message = "Logged out.",
+            TokenTypeHint = resolvedTokenTypeHint,
+            Revoked = true
+        });
     }
 }
