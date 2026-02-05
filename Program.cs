@@ -2,6 +2,7 @@
 using InfinityCodexWebApp;
 using InfinityCodexWebApp.Authorization;
 using InfinityCodexWebApp.Data;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore;
 
@@ -24,6 +25,11 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "InfinityCodex.Auth";
+    });
 builder.Services.AddAuthorization(options =>
 {
     options.AddRoleBasedPolicies();
@@ -38,6 +44,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
