@@ -1,6 +1,7 @@
 using System;
 using InfinityCodexWebApp.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 #nullable disable
 

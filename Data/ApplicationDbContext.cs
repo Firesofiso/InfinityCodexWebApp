@@ -15,8 +15,6 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<ItemAllowedJob> ItemAllowedJobs => Set<ItemAllowedJob>();
     public DbSet<ItemSource> ItemSources => Set<ItemSource>();
     public DbSet<ContentSource> ContentSources => Set<ContentSource>();
-    public DbSet<WeatherForecast> WeatherForecasts => Set<WeatherForecast>();
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

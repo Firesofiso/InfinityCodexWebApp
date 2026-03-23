@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
@@ -32,7 +34,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("login")]
-    public IActionResult DiscordLogin([FromQuery] string? state = null, [FromQuery] string? returnUrl = null)
+    public IActionResult DiscordLogin([FromQuery] string? state = null, [FromQuery] string? returnUrl = "http://localhost:4200/")
     {
         var clientId = _configuration["DiscordOAuth:ClientId"];
         var redirectUri = _configuration["DiscordOAuth:RedirectUri"];
@@ -115,15 +117,17 @@ public class AuthController : ControllerBase
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, authProperties);
 
         var resolvedReturnUrl = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl;
-        if (!Url.IsLocalUrl(resolvedReturnUrl))
-        {
-            resolvedReturnUrl = "/";
-        }
+        // if (!Url.IsLocalUrl(resolvedReturnUrl))
+        // {
+        //     resolvedReturnUrl = "/";
+        // }
 
         return Redirect(resolvedReturnUrl);
     }
 
-    [HttpGet("/auth/me")]
+    
+
+    [HttpGet("me")]
     public async Task<IActionResult> DiscordMe([FromQuery(Name = "access_token")] string? accessToken = null)
     {
         var token = ResolveAccessToken(accessToken);
@@ -164,6 +168,29 @@ public class AuthController : ControllerBase
             return Content(responseBody, contentType);
         }
     }
+
+    [Authorize]
+    [HttpGet("session")]
+    public IActionResult Session()
+    {
+        var user = HttpContext.User;
+        if (user?.Identity?.IsAuthenticated != true)
+        {
+            return Unauthorized();
+        }
+
+        return Ok(new
+        {
+            IsAuthenticated = true,
+            Name = user.Identity?.Name,
+            Claims = user.Claims.Select(claim => new
+            {
+                claim.Type,
+                claim.Value
+            })
+        });
+    }
+
 
     private string? ResolveAccessToken(string? accessToken)
     {
