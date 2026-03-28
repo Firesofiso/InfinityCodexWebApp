@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace InfinityCodexWebApp.Controllers;
 
@@ -26,15 +27,17 @@ public class AuthController : ControllerBase
     private const string DiscordReturnUrlCookieName = "discord_oauth_return_url";
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IConfiguration configuration, HttpClient httpClient)
+    public AuthController(IConfiguration configuration, HttpClient httpClient, ILogger<AuthController> logger)
     {
         _configuration = configuration;
         _httpClient = httpClient;
+        _logger = logger;
     }
 
     [HttpGet("login")]
-    public IActionResult DiscordLogin([FromQuery] string? state = null, [FromQuery] string? returnUrl = "http://localhost:4200/")
+    public IActionResult DiscordLogin([FromQuery] string? state = null, [FromQuery] string? returnUrl = null)
     {
         var clientId = _configuration["DiscordOAuth:ClientId"];
         var redirectUri = _configuration["DiscordOAuth:RedirectUri"];
@@ -46,8 +49,16 @@ public class AuthController : ControllerBase
             return Problem("Discord OAuth configuration is missing.", statusCode: StatusCodes.Status500InternalServerError);
         }
 
+        var resolvedReturnUrl = ResolveReturnUrl(returnUrl);
+        if (resolvedReturnUrl is null)
+        {
+            _logger.LogWarning("Rejected Discord login returnUrl '{ReturnUrl}' because it does not match configured frontend origin.", returnUrl);
+            return Problem("The provided return URL is not allowed.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // Persist state server-side in cookies so the callback can verify the OAuth round-trip came from us.
         var resolvedState = string.IsNullOrWhiteSpace(state) ? Guid.NewGuid().ToString("N") : state;
-        PersistOauthState(resolvedState, returnUrl);
+        PersistOauthState(resolvedState, resolvedReturnUrl);
         var queryParams = new Dictionary<string, string?>
         {
             ["client_id"] = clientId,
@@ -75,29 +86,34 @@ public class AuthController : ControllerBase
                 ? $"Discord OAuth error: {error}."
                 : $"Discord OAuth error: {error}. {errorDescription}";
 
-            return Problem(message, statusCode: StatusCodes.Status400BadRequest);
+            _logger.LogWarning("Discord OAuth callback returned provider error {Error}: {ErrorDescription}", error, errorDescription);
+            return RedirectWithAuthError("oauth_provider_error", message);
         }
 
         if (string.IsNullOrWhiteSpace(code))
         {
-            return Problem("Discord OAuth code is missing.", statusCode: StatusCodes.Status400BadRequest);
+            _logger.LogWarning("Discord OAuth callback missing authorization code.");
+            return RedirectWithAuthError("oauth_missing_code", "Discord OAuth code is missing.");
         }
 
         if (!TryValidateOauthState(state, out var returnUrl))
         {
-            return Problem("Discord OAuth state is invalid.", statusCode: StatusCodes.Status400BadRequest);
+            _logger.LogWarning("Discord callback rejected because OAuth state validation failed. Incoming state: '{State}'.", state);
+            return RedirectWithAuthError("oauth_invalid_state", "Discord OAuth state is invalid.");
         }
 
         var tokenResponse = await ExchangeCodeForToken(code);
         if (tokenResponse is null)
         {
-            return Problem("Failed to exchange Discord OAuth code for token.", statusCode: StatusCodes.Status502BadGateway);
+            _logger.LogError("Discord OAuth token exchange failed for callback request.");
+            return RedirectWithAuthError("oauth_token_exchange_failed", "Failed to exchange Discord OAuth code for token.", returnUrl);
         }
 
         var userResponse = await FetchDiscordUser(tokenResponse.AccessToken);
         if (userResponse is null)
         {
-            return Problem("Failed to fetch Discord user profile.", statusCode: StatusCodes.Status502BadGateway);
+            _logger.LogError("Discord user profile fetch failed after successful token exchange.");
+            return RedirectWithAuthError("oauth_profile_fetch_failed", "Failed to fetch Discord user profile.", returnUrl);
         }
 
         var claims = BuildClaims(userResponse.Value);
@@ -116,13 +132,8 @@ public class AuthController : ControllerBase
 
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, authProperties);
 
-        var resolvedReturnUrl = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl;
-        // if (!Url.IsLocalUrl(resolvedReturnUrl))
-        // {
-        //     resolvedReturnUrl = "/";
-        // }
-
-        return Redirect(resolvedReturnUrl);
+        // After the cookie is issued, send the browser back to the frontend page that initiated login.
+        return Redirect(ResolveReturnUrl(returnUrl) ?? GetFrontendBaseUrl());
     }
 
     
@@ -169,14 +180,18 @@ public class AuthController : ControllerBase
         }
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet("session")]
     public IActionResult Session()
     {
         var user = HttpContext.User;
         if (user?.Identity?.IsAuthenticated != true)
         {
-            return Unauthorized();
+            // Treat "not logged in" as normal state so the SPA does not have to special-case 401 handling.
+            return Ok(new
+            {
+                IsAuthenticated = false
+            });
         }
 
         return Ok(new
@@ -365,21 +380,74 @@ public class AuthController : ControllerBase
         [FromQuery(Name = "access_token")] string? accessToken = null,
         [FromQuery(Name = "token_type_hint")] string? tokenTypeHint = null)
     {
-        var token = ResolveAccessToken(accessToken);
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return Problem("Discord access token is missing.", statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        var clientId = _configuration["DiscordOAuth:ClientId"];
-        var clientSecret = _configuration["DiscordOAuth:ClientSecret"];
-
-        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
-        {
-            return Problem("Discord OAuth client credentials are missing.", statusCode: StatusCodes.Status500InternalServerError);
-        }
-
+        var authenticateResult = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        // Prefer the token stored in the auth cookie so the frontend can log out without tracking Discord tokens itself.
+        var token = ResolveAccessToken(accessToken) ?? authenticateResult.Properties?.GetTokenValue("access_token");
         var resolvedTokenTypeHint = string.IsNullOrWhiteSpace(tokenTypeHint) ? "access_token" : tokenTypeHint;
+        var revoked = false;
+
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            var clientId = _configuration["DiscordOAuth:ClientId"];
+            var clientSecret = _configuration["DiscordOAuth:ClientSecret"];
+
+            if (!string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(clientSecret))
+            {
+                revoked = await RevokeDiscordToken(token, resolvedTokenTypeHint, clientId, clientSecret);
+            }
+            else
+            {
+                _logger.LogWarning("Skipping Discord token revocation because client credentials are missing.");
+            }
+        }
+
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        // Clear transient OAuth cookies as part of the same logout path.
+        Response.Cookies.Delete(DiscordStateCookieName);
+        Response.Cookies.Delete(DiscordReturnUrlCookieName);
+
+        return Ok(new
+        {
+            Message = "Logged out.",
+            TokenTypeHint = resolvedTokenTypeHint,
+            Revoked = revoked,
+            SessionCleared = true
+        });
+    }
+
+    private string GetFrontendBaseUrl()
+    {
+        return _configuration["Frontend:BaseUrl"] ?? "http://localhost:4200/";
+    }
+
+    private string? ResolveReturnUrl(string? returnUrl)
+    {
+        var configuredFrontendUrl = GetFrontendBaseUrl();
+        if (string.IsNullOrWhiteSpace(returnUrl))
+        {
+            return configuredFrontendUrl;
+        }
+
+        if (!Uri.TryCreate(returnUrl, UriKind.Absolute, out var candidateUri))
+        {
+            return null;
+        }
+
+        if (!Uri.TryCreate(configuredFrontendUrl, UriKind.Absolute, out var frontendUri))
+        {
+            return null;
+        }
+
+        var sameOrigin = string.Equals(candidateUri.Scheme, frontendUri.Scheme, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(candidateUri.Host, frontendUri.Host, StringComparison.OrdinalIgnoreCase)
+            && candidateUri.Port == frontendUri.Port;
+
+        // Only allow redirects back to the configured frontend origin.
+        return sameOrigin ? candidateUri.ToString() : null;
+    }
+
+    private async Task<bool> RevokeDiscordToken(string token, string tokenTypeHint, string clientId, string clientSecret)
+    {
         using var revokeRequest = new HttpRequestMessage(HttpMethod.Post, DiscordTokenRevokeUrl)
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -387,28 +455,34 @@ public class AuthController : ControllerBase
                 ["client_id"] = clientId,
                 ["client_secret"] = clientSecret,
                 ["token"] = token,
-                ["token_type_hint"] = resolvedTokenTypeHint
+                ["token_type_hint"] = tokenTypeHint
             })
         };
 
         using var response = await _httpClient.SendAsync(revokeRequest);
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
         {
-            return StatusCode((int)response.StatusCode, new
-            {
-                Error = "Discord token revocation failed.",
-                Status = (int)response.StatusCode,
-                Details = responseBody
-            });
+            return true;
         }
 
-        return Ok(new
+        var responseBody = await response.Content.ReadAsStringAsync();
+        _logger.LogWarning(
+            "Discord token revocation failed with status {StatusCode}. Response: {ResponseBody}",
+            (int)response.StatusCode,
+            responseBody);
+
+        return false;
+    }
+
+    private IActionResult RedirectWithAuthError(string authErrorCode, string authErrorMessage, string? returnUrl = null)
+    {
+        var safeReturnUrl = ResolveReturnUrl(returnUrl) ?? GetFrontendBaseUrl();
+        var redirectUrl = QueryHelpers.AddQueryString(safeReturnUrl, new Dictionary<string, string?>
         {
-            Message = "Logged out.",
-            TokenTypeHint = resolvedTokenTypeHint,
-            Revoked = true
+            ["authError"] = authErrorCode,
+            ["authErrorMessage"] = authErrorMessage
         });
+
+        return Redirect(redirectUrl);
     }
 }

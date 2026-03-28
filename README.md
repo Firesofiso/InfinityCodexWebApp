@@ -28,3 +28,19 @@ dotnet user-secrets list
 ```
 
 For deployed environments, provide the same value through the `DiscordOAuth__ClientSecret` environment variable.
+
+## Auth Cookie Settings
+
+The login session cookie is now explicitly configured through `AuthCookie` settings:
+
+```json
+"AuthCookie": {
+	"LifetimeHours": 168,
+	"SlidingExpiration": false
+}
+```
+
+- `LifetimeHours` controls how long the persistent auth cookie remains valid.
+- `SlidingExpiration` controls whether active use extends that window.
+
+The current default is a fixed 7-day session with sliding expiration disabled so the session does not silently extend past its intended lifetime.

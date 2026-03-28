@@ -1,51 +1,42 @@
-import { Component, OnInit, signal } from "@angular/core";
-import { AuthService } from "../../services/auth.service";
-import { CharacterProfileDetail } from "../character-profile-detail/character-profile-detail";
-import { FullCalendarModule } from '@fullcalendar/angular';
-import { CalendarOptions } from '@fullcalendar/core';
-import dayGridPlugin from '@fullcalendar/daygrid';
+import { Component, OnInit, inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'app-home',
-    imports: [CharacterProfileDetail, FullCalendarModule],
+    imports: [],
     templateUrl: './home.component.html'
 })
 export class HomeComponent implements OnInit {
-    private authService: AuthService = new AuthService();
-    public isLoggedIn = signal<boolean>(false);
-    calendarOptions: CalendarOptions = {
-        initialView: 'dayGridMonth',
-        plugins: [dayGridPlugin]
-    };
+    private authService = inject(AuthService);
+    private router = inject(Router);
+    public readonly authState = this.authService.authState;
+    public readonly authError = this.authService.authError;
 
     public ngOnInit(): void {
         this.checkAuth();
     }
 
-    public checkAuth() {
-        this.authService.checkAuth().subscribe({
+    public checkAuth(): void {
+        if (this.authService.hasAuthenticatedSession()) {
+            this.router.navigate(['/app']);
+            return;
+        }
+
+        this.authService.refreshSession().subscribe({
             next: (response) => {
-                this.isLoggedIn.set(true);
-                console.log('Login successful:', response);
+                if (response.isAuthenticated) {
+                    this.router.navigate(['/app']);
+                }
+                console.log('Session check completed:', response);
             },
             error: (error) => {
-                this.isLoggedIn.set(false);
-                console.error('Login failed:', error);
+                console.error('Session check failed:', error);
             }
         });
     }
 
-    public discordLogin() { 
-        window.location.href = 'https://unrealistic-skyla-demagogically.ngrok-free.dev/auth/discord/login';
-        // this.authService.discordLogin().subscribe({
-        //     next: (response) => {
-        //         console.log('Login successful:', response);
-        //         // Handle successful login, e.g., navigate to dashboard
-        //     },
-        //     error: (error) => {
-        //         console.error('Login failed:', error);
-        //         // Handle login failure, e.g., show error message
-        //     }
-        // });
+    public discordLogin() {
+        window.location.assign(this.authService.getDiscordLoginUrl(window.location.href));
     }
 }
