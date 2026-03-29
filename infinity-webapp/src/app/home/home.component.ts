@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -10,10 +10,16 @@ import { AuthService } from '../../services/auth.service';
 export class HomeComponent implements OnInit {
     private authService = inject(AuthService);
     private router = inject(Router);
+    private route = inject(ActivatedRoute);
     public readonly authState = this.authService.authState;
     public readonly authError = this.authService.authError;
+    public authErrorMessage: string | null = null;
 
     public ngOnInit(): void {
+        this.route.queryParamMap.subscribe((params) => {
+            this.authErrorMessage = params.get('authErrorMessage');
+        });
+
         this.checkAuth();
     }
 
@@ -25,13 +31,18 @@ export class HomeComponent implements OnInit {
 
         this.authService.refreshSession().subscribe({
             next: (response) => {
-                if (response.isAuthenticated) {
+                const registrationStatus = response.registrationStatus ?? (response.isRegistrationComplete ? 'complete' : 'pending');
+                if (response.isAuthenticated && registrationStatus === 'complete') {
                     this.router.navigate(['/app']);
+                    return;
                 }
-                console.log('Session check completed:', response);
+
+                if (response.isAuthenticated && registrationStatus === 'pending') {
+                    this.router.navigate(['/register']);
+                }
             },
-            error: (error) => {
-                console.error('Session check failed:', error);
+            error: () => {
+                this.authErrorMessage = this.authErrorMessage ?? 'Session check failed. Please try again.';
             }
         });
     }

@@ -13,8 +13,12 @@ export const authGuard: CanActivateFn = () => {
 
     return authService.refreshSession().pipe(
         map((session) => {
-            if (session.isAuthenticated) {
+            if (session.isAuthenticated && (session.registrationStatus ?? (session.isRegistrationComplete ? 'complete' : 'pending')) === 'complete') {
                 return true;
+            }
+
+            if (session.isAuthenticated) {
+                return router.createUrlTree(['/register']);
             }
 
             return router.createUrlTree(['/']);

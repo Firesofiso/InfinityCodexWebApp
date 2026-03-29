@@ -1,15 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
-using Microsoft.AspNetCore.Authorization;
+using InfinityCodexWebApp.Authorization;
+using InfinityCodexWebApp.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -23,15 +27,26 @@ public class AuthController : ControllerBase
     private const string DiscordUserUrl = "https://discord.com/api/users/@me";
     private const string DiscordTokenUrl = "https://discord.com/api/oauth2/token";
     private const string DiscordTokenRevokeUrl = "https://discord.com/api/oauth2/token/revoke";
+    private const string DiscordCurrentUserGuildMemberUrlTemplate = "https://discord.com/api/users/@me/guilds/{0}/member";
     private const string DiscordStateCookieName = "discord_oauth_state";
     private const string DiscordReturnUrlCookieName = "discord_oauth_return_url";
+    private const string RegistrationStatusClaimType = "infinity:registration_status";
+    private const string RegistrationStatusPending = "pending";
+    private const string RegistrationStatusComplete = "complete";
+
     private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _dbContext;
     private readonly HttpClient _httpClient;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IConfiguration configuration, HttpClient httpClient, ILogger<AuthController> logger)
+    public AuthController(
+        IConfiguration configuration,
+        ApplicationDbContext dbContext,
+        HttpClient httpClient,
+        ILogger<AuthController> logger)
     {
         _configuration = configuration;
+        _dbContext = dbContext;
         _httpClient = httpClient;
         _logger = logger;
     }
@@ -41,7 +56,7 @@ public class AuthController : ControllerBase
     {
         var clientId = _configuration["DiscordOAuth:ClientId"];
         var redirectUri = _configuration["DiscordOAuth:RedirectUri"];
-        var scope = _configuration["DiscordOAuth:Scope"] ?? "identify email";
+        var scope = _configuration["DiscordOAuth:Scope"] ?? "identify email guilds.members.read";
         var prompt = _configuration["DiscordOAuth:Prompt"] ?? "consent";
 
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(redirectUri))
@@ -56,7 +71,6 @@ public class AuthController : ControllerBase
             return Problem("The provided return URL is not allowed.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        // Persist state server-side in cookies so the callback can verify the OAuth round-trip came from us.
         var resolvedState = string.IsNullOrWhiteSpace(state) ? Guid.NewGuid().ToString("N") : state;
         PersistOauthState(resolvedState, resolvedReturnUrl);
         var queryParams = new Dictionary<string, string?>
@@ -116,27 +130,67 @@ public class AuthController : ControllerBase
             return RedirectWithAuthError("oauth_profile_fetch_failed", "Failed to fetch Discord user profile.", returnUrl);
         }
 
-        var claims = BuildClaims(userResponse.Value);
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-        var authProperties = new AuthenticationProperties
+        var userProfile = ExtractDiscordUserProfile(userResponse.Value);
+        if (userProfile is null)
         {
-            IsPersistent = true,
-            AllowRefresh = true
+            _logger.LogError("Discord user profile payload did not contain an id.");
+            return RedirectWithAuthError("oauth_profile_invalid", "Discord profile payload was invalid.", returnUrl);
+        }
+
+        var existingUser = await _dbContext.Users.FirstOrDefaultAsync(user => user.DiscordId == userProfile.DiscordId);
+        if (existingUser is not null)
+        {
+            if (!existingUser.IsActive)
+            {
+                return RedirectWithAuthError("account_inactive", "Your registration is currently inactive.", returnUrl);
+            }
+
+            if (existingUser.IsRegistrationComplete)
+            {
+                await SignInUserAsync(existingUser, userProfile, pendingRegistration: false, tokenResponse: tokenResponse);
+                return Redirect(ResolveReturnUrl(returnUrl) ?? GetFrontendBaseUrl());
+            }
+
+            await SignInUserAsync(existingUser, userProfile, pendingRegistration: true, tokenResponse: tokenResponse);
+            return Redirect(GetFrontendRegistrationUrl());
+        }
+
+        var guildId = _configuration["DiscordOAuth:RegistrationGuildId"];
+        if (string.IsNullOrWhiteSpace(guildId))
+        {
+            _logger.LogError("DiscordOAuth:RegistrationGuildId is not configured; cannot evaluate registration eligibility.");
+            return RedirectWithAuthError("registration_unavailable", "Registration is currently unavailable.", returnUrl);
+        }
+
+        var guildMembership = await CheckGuildMembership(tokenResponse.AccessToken, guildId);
+        if (!guildMembership.Success)
+        {
+            _logger.LogWarning("Discord guild membership check failed for registration. Reason: {Reason}", guildMembership.ErrorMessage);
+            return RedirectWithAuthError("registration_membership_check_failed", "Could not verify Linkshell membership right now. Please try again.", returnUrl);
+        }
+
+        if (!guildMembership.IsMember)
+        {
+            return RedirectWithAuthError("registration_not_allowed", "You must be in the Linkshell Discord server to register.", returnUrl);
+        }
+
+        var pendingUser = new User
+        {
+            DiscordId = userProfile.DiscordId,
+            DisplayName = userProfile.Username,
+            Role = AppRoles.Reader,
+            IsActive = true,
+            IsRegistrationComplete = false,
+            PreferredJobsCsv = string.Empty,
+            CreatedAt = DateTime.UtcNow
         };
-        authProperties.StoreTokens(new[]
-        {
-            new AuthenticationToken { Name = "access_token", Value = tokenResponse.AccessToken },
-            new AuthenticationToken { Name = "token_type", Value = tokenResponse.TokenType }
-        });
 
-        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, authProperties);
+        _dbContext.Users.Add(pendingUser);
+        await _dbContext.SaveChangesAsync();
 
-        // After the cookie is issued, send the browser back to the frontend page that initiated login.
-        return Redirect(ResolveReturnUrl(returnUrl) ?? GetFrontendBaseUrl());
+        await SignInUserAsync(pendingUser, userProfile, pendingRegistration: true, tokenResponse: tokenResponse);
+        return Redirect(GetFrontendRegistrationUrl());
     }
-
-    
 
     [HttpGet("me")]
     public async Task<IActionResult> DiscordMe([FromQuery(Name = "access_token")] string? accessToken = null)
@@ -187,17 +241,25 @@ public class AuthController : ControllerBase
         var user = HttpContext.User;
         if (user?.Identity?.IsAuthenticated != true)
         {
-            // Treat "not logged in" as normal state so the SPA does not have to special-case 401 handling.
             return Ok(new
             {
-                IsAuthenticated = false
+                IsAuthenticated = false,
+                RegistrationStatus = (string?)null,
+                CanAccessApp = false
             });
         }
+
+        var registrationStatus = user.FindFirstValue(RegistrationStatusClaimType) ?? RegistrationStatusPending;
+        var role = user.FindFirstValue(ClaimTypes.Role);
 
         return Ok(new
         {
             IsAuthenticated = true,
             Name = user.Identity?.Name,
+            RegistrationStatus = registrationStatus,
+            IsRegistrationComplete = string.Equals(registrationStatus, RegistrationStatusComplete, StringComparison.OrdinalIgnoreCase),
+            CanAccessApp = string.Equals(registrationStatus, RegistrationStatusComplete, StringComparison.OrdinalIgnoreCase),
+            Role = role,
             Claims = user.Claims.Select(claim => new
             {
                 claim.Type,
@@ -206,74 +268,255 @@ public class AuthController : ControllerBase
         });
     }
 
-
-    private string? ResolveAccessToken(string? accessToken)
+    [Authorize]
+    [HttpGet("/auth/registration/context")]
+    public async Task<IActionResult> GetRegistrationContext()
     {
-        if (!string.IsNullOrWhiteSpace(accessToken))
+        var discordId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(discordId))
         {
-            return accessToken;
+            return Unauthorized(new { Message = "Discord identity is missing from the current session." });
         }
 
-        if (!Request.Headers.TryGetValue("Authorization", out var authHeader))
+        var user = await _dbContext.Users.FirstOrDefaultAsync(entity => entity.DiscordId == discordId);
+        if (user is null)
+        {
+            return NotFound(new { Message = "Registration record was not found." });
+        }
+
+        return Ok(new
+        {
+            IsRegistrationComplete = user.IsRegistrationComplete,
+            DisplayName = user.DisplayName,
+            PreferredJobs = SplitPreferredJobs(user.PreferredJobsCsv),
+            DiscordName = User.Identity?.Name
+        });
+    }
+
+    [Authorize]
+    [HttpPost("/auth/registration/complete")]
+    public async Task<IActionResult> CompleteRegistration([FromBody] CompleteRegistrationRequest request)
+    {
+        if (request is null)
+        {
+            return BadRequest(new { Message = "Registration payload is required." });
+        }
+
+        var displayName = request.DisplayName?.Trim();
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return BadRequest(new { Message = "Display name is required." });
+        }
+
+        if (displayName.Length > 64)
+        {
+            return BadRequest(new { Message = "Display name must be 64 characters or fewer." });
+        }
+
+        var discordId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(discordId))
+        {
+            return Unauthorized(new { Message = "Discord identity is missing from the current session." });
+        }
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(entity => entity.DiscordId == discordId);
+        if (user is null)
+        {
+            return NotFound(new { Message = "Registration record was not found." });
+        }
+
+        if (!user.IsActive)
+        {
+            return Forbid();
+        }
+
+        if (user.IsRegistrationComplete)
+        {
+            return Ok(new { Message = "Registration is already complete." });
+        }
+
+        var normalizedPreferredJobs = NormalizePreferredJobs(request.PreferredJobs);
+
+        user.DisplayName = displayName;
+        user.IsRegistrationComplete = true;
+        user.RegistrationCompletedAt = DateTime.UtcNow;
+        user.PreferredJobsCsv = string.Join(',', normalizedPreferredJobs);
+
+        var existingPreferredJobs = await _dbContext.UserPreferredJobs
+            .Where(entity => entity.UserId == user.Id)
+            .ToListAsync();
+
+        if (existingPreferredJobs.Count > 0)
+        {
+            _dbContext.UserPreferredJobs.RemoveRange(existingPreferredJobs);
+        }
+
+        foreach (var jobCode in normalizedPreferredJobs)
+        {
+            _dbContext.UserPreferredJobs.Add(new UserPreferredJob
+            {
+                UserId = user.Id,
+                JobCode = jobCode
+            });
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        var currentProfile = new DiscordUserProfile(
+            user.DiscordId,
+            User.Identity?.Name ?? user.DisplayName,
+            User.FindFirstValue(ClaimTypes.Email));
+
+        await SignInUserAsync(user, currentProfile, pendingRegistration: false);
+
+        return Ok(new
+        {
+            Message = "Registration complete.",
+            IsRegistrationComplete = true
+        });
+    }
+
+    [HttpPost("/auth/logout")]
+    public async Task<IActionResult> DiscordLogout(
+        [FromQuery(Name = "access_token")] string? accessToken = null,
+        [FromQuery(Name = "token_type_hint")] string? tokenTypeHint = null)
+    {
+        var authenticateResult = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        var token = ResolveAccessToken(accessToken) ?? authenticateResult.Properties?.GetTokenValue("access_token");
+        var resolvedTokenTypeHint = string.IsNullOrWhiteSpace(tokenTypeHint) ? "access_token" : tokenTypeHint;
+        var revoked = false;
+
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            var clientId = _configuration["DiscordOAuth:ClientId"];
+            var clientSecret = _configuration["DiscordOAuth:ClientSecret"];
+
+            if (!string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(clientSecret))
+            {
+                revoked = await RevokeDiscordToken(token, resolvedTokenTypeHint, clientId, clientSecret);
+            }
+            else
+            {
+                _logger.LogWarning("Skipping Discord token revocation because client credentials are missing.");
+            }
+        }
+
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        Response.Cookies.Delete(DiscordStateCookieName);
+        Response.Cookies.Delete(DiscordReturnUrlCookieName);
+
+        return Ok(new
+        {
+            Message = "Logged out.",
+            TokenTypeHint = resolvedTokenTypeHint,
+            Revoked = revoked,
+            SessionCleared = true
+        });
+    }
+
+    private async Task SignInUserAsync(User user, DiscordUserProfile userProfile, bool pendingRegistration, DiscordTokenResponse? tokenResponse = null)
+    {
+        var claims = BuildClaims(user, userProfile, pendingRegistration).ToList();
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+        var authProperties = new AuthenticationProperties
+        {
+            IsPersistent = true,
+            AllowRefresh = true
+        };
+
+        if (tokenResponse is not null)
+        {
+            authProperties.StoreTokens(new[]
+            {
+                new AuthenticationToken { Name = "access_token", Value = tokenResponse.AccessToken },
+                new AuthenticationToken { Name = "token_type", Value = tokenResponse.TokenType }
+            });
+        }
+        else
+        {
+            var authenticateResult = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            var accessToken = authenticateResult.Properties?.GetTokenValue("access_token");
+            var tokenType = authenticateResult.Properties?.GetTokenValue("token_type") ?? "Bearer";
+
+            if (!string.IsNullOrWhiteSpace(accessToken))
+            {
+                authProperties.StoreTokens(new[]
+                {
+                    new AuthenticationToken { Name = "access_token", Value = accessToken },
+                    new AuthenticationToken { Name = "token_type", Value = tokenType }
+                });
+            }
+        }
+
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, authProperties);
+    }
+
+    private static IEnumerable<Claim> BuildClaims(User user, DiscordUserProfile userProfile, bool pendingRegistration)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, userProfile.DiscordId),
+            new(ClaimTypes.Name, pendingRegistration ? userProfile.Username : user.DisplayName),
+            new(RegistrationStatusClaimType, pendingRegistration ? RegistrationStatusPending : RegistrationStatusComplete)
+        };
+
+        if (!string.IsNullOrWhiteSpace(userProfile.Email))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, userProfile.Email));
+        }
+
+        if (!pendingRegistration && !string.IsNullOrWhiteSpace(user.Role))
+        {
+            claims.Add(new Claim(ClaimTypes.Role, user.Role));
+        }
+
+        return claims;
+    }
+
+    private static DiscordUserProfile? ExtractDiscordUserProfile(JsonElement userProfile)
+    {
+        if (!userProfile.TryGetProperty("id", out var idValue))
         {
             return null;
         }
 
-        var headerValue = authHeader.ToString();
-        const string bearerPrefix = "Bearer ";
-        if (headerValue.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        var discordId = idValue.GetString();
+        if (string.IsNullOrWhiteSpace(discordId))
         {
-            return headerValue[bearerPrefix.Length..].Trim();
+            return null;
         }
 
-        return null;
+        var username = userProfile.TryGetProperty("username", out var usernameValue)
+            ? usernameValue.GetString()
+            : null;
+
+        var email = userProfile.TryGetProperty("email", out var emailValue)
+            ? emailValue.GetString()
+            : null;
+
+        return new DiscordUserProfile(discordId, username ?? "Discord User", email);
     }
 
-    private void PersistOauthState(string state, string? returnUrl)
+    private async Task<GuildMembershipResult> CheckGuildMembership(string accessToken, string guildId)
     {
-        var cookieOptions = new CookieOptions
+        var membershipUrl = string.Format(DiscordCurrentUserGuildMemberUrlTemplate, WebUtility.UrlEncode(guildId));
+        using var request = new HttpRequestMessage(HttpMethod.Get, membershipUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await _httpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
         {
-            HttpOnly = true,
-            SameSite = SameSiteMode.Lax,
-            Secure = Request.IsHttps
-        };
-
-        Response.Cookies.Append(DiscordStateCookieName, state, cookieOptions);
-
-        if (!string.IsNullOrWhiteSpace(returnUrl))
-        {
-            Response.Cookies.Append(DiscordReturnUrlCookieName, returnUrl, cookieOptions);
-        }
-    }
-
-    private bool TryValidateOauthState(string? state, out string? returnUrl)
-    {
-        returnUrl = null;
-
-        if (string.IsNullOrWhiteSpace(state))
-        {
-            return false;
+            return GuildMembershipResult.Member();
         }
 
-        if (!Request.Cookies.TryGetValue(DiscordStateCookieName, out var storedState))
+        if (response.StatusCode == HttpStatusCode.NotFound)
         {
-            return false;
+            return GuildMembershipResult.NotMember();
         }
 
-        Response.Cookies.Delete(DiscordStateCookieName);
-
-        if (!string.Equals(state, storedState, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (Request.Cookies.TryGetValue(DiscordReturnUrlCookieName, out var storedReturnUrl))
-        {
-            Response.Cookies.Delete(DiscordReturnUrlCookieName);
-            returnUrl = storedReturnUrl;
-        }
-
-        return true;
+        var responseBody = await response.Content.ReadAsStringAsync();
+        return GuildMembershipResult.Failure($"Discord membership check failed with {(int)response.StatusCode}. {responseBody}");
     }
 
     private async Task<DiscordTokenResponse?> ExchangeCodeForToken(string code)
@@ -351,73 +594,89 @@ public class AuthController : ControllerBase
         }
     }
 
-    private static IEnumerable<Claim> BuildClaims(JsonElement userProfile)
+    private string? ResolveAccessToken(string? accessToken)
     {
-        var claims = new List<Claim>();
-
-        if (userProfile.TryGetProperty("id", out var idValue))
+        if (!string.IsNullOrWhiteSpace(accessToken))
         {
-            claims.Add(new Claim(ClaimTypes.NameIdentifier, idValue.GetString() ?? string.Empty));
+            return accessToken;
         }
 
-        if (userProfile.TryGetProperty("username", out var usernameValue))
+        if (!Request.Headers.TryGetValue("Authorization", out var authHeader))
         {
-            claims.Add(new Claim(ClaimTypes.Name, usernameValue.GetString() ?? string.Empty));
+            return null;
         }
 
-        if (userProfile.TryGetProperty("email", out var emailValue))
+        var headerValue = authHeader.ToString();
+        const string bearerPrefix = "Bearer ";
+        if (headerValue.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            claims.Add(new Claim(ClaimTypes.Email, emailValue.GetString() ?? string.Empty));
+            return headerValue[bearerPrefix.Length..].Trim();
         }
 
-        return claims;
+        return null;
     }
 
-    private sealed record DiscordTokenResponse(string AccessToken, string TokenType);
-
-    [HttpPost("/auth/logout")]
-    public async Task<IActionResult> DiscordLogout(
-        [FromQuery(Name = "access_token")] string? accessToken = null,
-        [FromQuery(Name = "token_type_hint")] string? tokenTypeHint = null)
+    private void PersistOauthState(string state, string? returnUrl)
     {
-        var authenticateResult = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        // Prefer the token stored in the auth cookie so the frontend can log out without tracking Discord tokens itself.
-        var token = ResolveAccessToken(accessToken) ?? authenticateResult.Properties?.GetTokenValue("access_token");
-        var resolvedTokenTypeHint = string.IsNullOrWhiteSpace(tokenTypeHint) ? "access_token" : tokenTypeHint;
-        var revoked = false;
-
-        if (!string.IsNullOrWhiteSpace(token))
+        var cookieOptions = new CookieOptions
         {
-            var clientId = _configuration["DiscordOAuth:ClientId"];
-            var clientSecret = _configuration["DiscordOAuth:ClientSecret"];
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = Request.IsHttps
+        };
 
-            if (!string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(clientSecret))
-            {
-                revoked = await RevokeDiscordToken(token, resolvedTokenTypeHint, clientId, clientSecret);
-            }
-            else
-            {
-                _logger.LogWarning("Skipping Discord token revocation because client credentials are missing.");
-            }
+        Response.Cookies.Append(DiscordStateCookieName, state, cookieOptions);
+
+        if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            Response.Cookies.Append(DiscordReturnUrlCookieName, returnUrl, cookieOptions);
+        }
+    }
+
+    private bool TryValidateOauthState(string? state, out string? returnUrl)
+    {
+        returnUrl = null;
+
+        if (string.IsNullOrWhiteSpace(state))
+        {
+            return false;
         }
 
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        // Clear transient OAuth cookies as part of the same logout path.
-        Response.Cookies.Delete(DiscordStateCookieName);
-        Response.Cookies.Delete(DiscordReturnUrlCookieName);
-
-        return Ok(new
+        if (!Request.Cookies.TryGetValue(DiscordStateCookieName, out var storedState))
         {
-            Message = "Logged out.",
-            TokenTypeHint = resolvedTokenTypeHint,
-            Revoked = revoked,
-            SessionCleared = true
-        });
+            return false;
+        }
+
+        Response.Cookies.Delete(DiscordStateCookieName);
+
+        if (!string.Equals(state, storedState, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (Request.Cookies.TryGetValue(DiscordReturnUrlCookieName, out var storedReturnUrl))
+        {
+            Response.Cookies.Delete(DiscordReturnUrlCookieName);
+            returnUrl = storedReturnUrl;
+        }
+
+        return true;
     }
 
     private string GetFrontendBaseUrl()
     {
         return _configuration["Frontend:BaseUrl"] ?? "http://localhost:4200/";
+    }
+
+    private string GetFrontendRegistrationUrl()
+    {
+        var frontendBaseUrl = GetFrontendBaseUrl();
+        if (!Uri.TryCreate(frontendBaseUrl, UriKind.Absolute, out var frontendUri))
+        {
+            return $"{frontendBaseUrl.TrimEnd('/')}/register";
+        }
+
+        return new Uri(frontendUri, "register").ToString();
     }
 
     private string? ResolveReturnUrl(string? returnUrl)
@@ -442,7 +701,6 @@ public class AuthController : ControllerBase
             && string.Equals(candidateUri.Host, frontendUri.Host, StringComparison.OrdinalIgnoreCase)
             && candidateUri.Port == frontendUri.Port;
 
-        // Only allow redirects back to the configured frontend origin.
         return sameOrigin ? candidateUri.ToString() : null;
     }
 
@@ -484,5 +742,55 @@ public class AuthController : ControllerBase
         });
 
         return Redirect(redirectUrl);
+    }
+
+    private static List<string> NormalizePreferredJobs(IEnumerable<string>? preferredJobs)
+    {
+        if (preferredJobs is null)
+        {
+            return new List<string>();
+        }
+
+        return preferredJobs
+            .Select(job => job?.Trim())
+            .Where(job => !string.IsNullOrWhiteSpace(job))
+            .Select(job => job!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(job => job, StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> SplitPreferredJobs(string preferredJobsCsv)
+    {
+        if (string.IsNullOrWhiteSpace(preferredJobsCsv))
+        {
+            return Array.Empty<string>();
+        }
+
+        return preferredJobsCsv
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private sealed record DiscordTokenResponse(string AccessToken, string TokenType);
+
+    private sealed record DiscordUserProfile(string DiscordId, string Username, string? Email);
+
+    private sealed record GuildMembershipResult(bool Success, bool IsMember, string? ErrorMessage)
+    {
+        public static GuildMembershipResult Member() => new(Success: true, IsMember: true, ErrorMessage: null);
+
+        public static GuildMembershipResult NotMember() => new(Success: true, IsMember: false, ErrorMessage: null);
+
+        public static GuildMembershipResult Failure(string errorMessage) => new(Success: false, IsMember: false, ErrorMessage: errorMessage);
+    }
+
+    public sealed class CompleteRegistrationRequest
+    {
+        public string? DisplayName { get; set; }
+
+        public List<string> PreferredJobs { get; set; } = new();
     }
 }

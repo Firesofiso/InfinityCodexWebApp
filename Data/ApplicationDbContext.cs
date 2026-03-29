@@ -6,6 +6,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<UserPreferredJob> UserPreferredJobs => Set<UserPreferredJob>();
     public DbSet<Character> Characters => Set<Character>();
     public DbSet<CharacterJob> CharacterJobs => Set<CharacterJob>();
     public DbSet<CharacterJobLevel> CharacterJobLevels => Set<CharacterJobLevel>();
@@ -18,6 +19,18 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasIndex(user => user.DiscordId)
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<UserPreferredJob>(entity =>
+        {
+            entity.HasIndex(userPreferredJob => new { userPreferredJob.UserId, userPreferredJob.JobCode })
+                .IsUnique();
+        });
 
         modelBuilder.Entity<Character>(entity =>
         {

@@ -37,8 +37,14 @@ export class DashboardComponent implements OnInit {
     private loadSession(force: boolean = false): void {
         this.authService.refreshSession(force).subscribe({
             next: (response) => {
+                const registrationStatus = response.registrationStatus ?? (response.isRegistrationComplete ? 'complete' : 'pending');
                 if (!response.isAuthenticated) {
                     this.router.navigate(['/']);
+                    return;
+                }
+
+                if (registrationStatus !== 'complete') {
+                    this.router.navigate(['/register']);
                 }
             },
             error: () => {

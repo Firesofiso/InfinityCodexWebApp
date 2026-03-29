@@ -6,10 +6,21 @@ import { catchError, finalize, shareReplay, tap } from 'rxjs/operators';
 export interface SessionResponse {
     isAuthenticated: boolean;
     name?: string;
+    registrationStatus?: 'pending' | 'complete' | null;
+    isRegistrationComplete?: boolean;
+    canAccessApp?: boolean;
+    role?: string | null;
     claims?: Array<{ type: string; value: string }>;
 }
 
-export type AuthState = 'checking' | 'authenticated' | 'unauthenticated';
+export interface RegistrationContextResponse {
+    isRegistrationComplete: boolean;
+    displayName: string;
+    preferredJobs: string[];
+    discordName?: string;
+}
+
+export type AuthState = 'checking' | 'authenticated' | 'pending-registration' | 'unauthenticated';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -32,7 +43,14 @@ export class AuthService {
     }
 
     public hasAuthenticatedSession(): boolean {
-        return this.authStateSignal() === 'authenticated' && this.sessionSignal() !== null;
+        const session = this.sessionSignal();
+        return this.authStateSignal() === 'authenticated'
+            && session !== null
+            && (session.registrationStatus ?? (session.isRegistrationComplete ? 'complete' : 'pending')) === 'complete';
+    }
+
+    public hasPendingRegistrationSession(): boolean {
+        return this.authStateSignal() === 'pending-registration' && this.sessionSignal() !== null;
     }
 
     public refreshSession(force: boolean = false): Observable<SessionResponse> {
@@ -47,7 +65,8 @@ export class AuthService {
             tap((response) => {
                 if (response.isAuthenticated) {
                     this.sessionSignal.set(response);
-                    this.authStateSignal.set('authenticated');
+                    const registrationStatus = response.registrationStatus ?? (response.isRegistrationComplete ? 'complete' : 'pending');
+                    this.authStateSignal.set(registrationStatus === 'complete' ? 'authenticated' : 'pending-registration');
                     return;
                 }
 
@@ -81,6 +100,32 @@ export class AuthService {
             catchError((error: unknown) => {
                 this.clearSession('Logout did not complete cleanly, but the local session was cleared.');
                 return throwError(() => error);
+            })
+        );
+    }
+
+    public getRegistrationContext(): Observable<RegistrationContextResponse> {
+        return this.http.get<RegistrationContextResponse>(`${this.API_URL}/registration/context`, { withCredentials: true });
+    }
+
+    public completeRegistration(payload: { displayName: string; preferredJobs: string[] }): Observable<{ message: string; isRegistrationComplete: boolean }> {
+        return this.http.post<{ message: string; isRegistrationComplete: boolean }>(
+            `${this.API_URL}/registration/complete`,
+            payload,
+            { withCredentials: true }
+        ).pipe(
+            tap(() => {
+                const existingSession = this.sessionSignal();
+                if (existingSession) {
+                    this.sessionSignal.set({
+                        ...existingSession,
+                        registrationStatus: 'complete',
+                        isRegistrationComplete: true,
+                        canAccessApp: true,
+                        name: payload.displayName
+                    });
+                }
+                this.authStateSignal.set('authenticated');
             })
         );
     }
