@@ -2,6 +2,7 @@
 using InfinityCodexWebApp;
 using InfinityCodexWebApp.Authorization;
 using InfinityCodexWebApp.Data;
+using InfinityCodexWebApp.Integrations.Horizon;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +38,16 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
+builder.Services.Configure<HorizonApiOptions>(builder.Configuration.GetSection(HorizonApiOptions.SectionName));
+builder.Services.AddHttpClient<IHorizonCharacterLookupClient, HorizonCharacterLookupClient>((services, client) =>
+{
+    var options = services
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<HorizonApiOptions>>()
+        .Value;
+
+    client.BaseAddress = new Uri(options.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+});
 // Keep the frontend origin configurable so local Angular dev and deployed UI can both call the API with cookies.
 builder.Services.AddCors(options =>
 {
@@ -72,7 +83,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             OnRedirectToLogin = context =>
             {
                 // API callers expect status codes instead of HTML login redirects.
-                if (context.Request.Path.StartsWithSegments("/auth"))
+                if (context.Request.Path.StartsWithSegments("/auth") || context.Request.Path.StartsWithSegments("/api"))
                 {
                     context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                     return Task.CompletedTask;
@@ -84,7 +95,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             OnRedirectToAccessDenied = context =>
             {
                 // Match the same API-friendly behavior for authorization failures.
-                if (context.Request.Path.StartsWithSegments("/auth"))
+                if (context.Request.Path.StartsWithSegments("/auth") || context.Request.Path.StartsWithSegments("/api"))
                 {
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     return Task.CompletedTask;

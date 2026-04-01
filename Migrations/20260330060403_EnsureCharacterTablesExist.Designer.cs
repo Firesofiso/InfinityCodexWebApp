@@ -3,6 +3,7 @@ using System;
 using InfinityCodexWebApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InfinityCodexWebApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260330060403_EnsureCharacterTablesExist")]
+    partial class EnsureCharacterTablesExist
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -39,9 +42,6 @@ namespace InfinityCodexWebApp.Migrations
 
                     b.Property<int>("OwnerUserId")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("PortraitUrl")
-                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -130,39 +130,6 @@ namespace InfinityCodexWebApp.Migrations
                     b.HasKey("CharacterId", "JobCode");
 
                     b.ToTable("CharacterJobLevels");
-                });
-
-            modelBuilder.Entity("InfinityCodexWebApp.CharacterMissionProgress", b =>
-                {
-                    b.Property<int>("CharacterId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("BastokMission")
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ChainsOfPromathiaMission")
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RiseOfTheZilartMission")
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SanDOriaMission")
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("WindurstMission")
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CharacterId");
-
-                    b.ToTable("CharacterMissionProgresses");
                 });
 
             modelBuilder.Entity("InfinityCodexWebApp.ContentSource", b =>

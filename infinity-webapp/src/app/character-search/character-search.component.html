@@ -1,0 +1,46 @@
+<div class="space-y-4">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-semibold text-white">Character Search</h1>
+      <p class="text-sm text-white/60">Search HorizonXI by character name.</p>
+    </div>
+    <div class="text-sm text-white/60">Query: <span class="text-white/90">{{ query() || 'None' }}</span></div>
+  </header>
+
+  <div *ngIf="isLoading()" class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+    Searching characters...
+  </div>
+
+  <div *ngIf="error() as errorMessage" class="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+    {{ errorMessage }}
+  </div>
+
+  <div *ngIf="!isLoading() && !error() && query().length >= 2 && results().length === 0" class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+    No characters found.
+  </div>
+
+  <div *ngIf="results().length > 0" class="grid gap-3">
+    <article *ngFor="let character of results()" class="rounded-xl border border-white/10 bg-white/5 p-4">
+      <div class="flex items-center gap-3">
+        <img
+          *ngIf="character.portraitUrl"
+          [src]="character.portraitUrl"
+          [alt]="character.name + ' portrait'"
+          class="h-14 w-14 rounded-full object-cover border-2 border-indigo-200/70"
+        />
+        <div
+          *ngIf="!character.portraitUrl"
+          class="h-14 w-14 rounded-full border-2 border-indigo-200/70 bg-white/10 text-white/90 flex items-center justify-center text-lg font-semibold"
+        >
+          {{ getInitial(character.name) }}
+        </div>
+
+        <div class="min-w-0">
+          <h2 class="truncate text-base font-semibold text-white">{{ character.name }}</h2>
+          <p class="truncate text-sm text-white/70">{{ character.currentJob || character.jobString || 'Unknown job' }}</p>
+          <p class="truncate text-xs text-white/50">ID: {{ character.characterId }}</p>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>

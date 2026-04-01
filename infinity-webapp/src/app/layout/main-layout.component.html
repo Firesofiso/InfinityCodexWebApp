@@ -7,19 +7,10 @@
         <div class="flex items-center gap-3 text-sm">
           <span class="text-white/80">Codex</span>
           <span class="text-white/40">/</span>
-          <span class="font-semibold">Dashboard</span>
+          <span class="font-semibold">{{ currentSection() }}</span>
         </div>
-        <div class="flex items-center gap-3">
-          <input
-            class="px-3 py-1.5 rounded-lg bg-white/10 border border-white/10 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
-            placeholder="Search..."
-          />
-          <button
-            type="button"
-            class="px-3 py-1.5 rounded-lg bg-indigo-500/80 hover:bg-indigo-500 transition text-sm"
-          >
-            New
-          </button>
+        <div class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs uppercase tracking-[0.2em] text-white/50">
+          Protected Workspace
         </div>
       </header>
 

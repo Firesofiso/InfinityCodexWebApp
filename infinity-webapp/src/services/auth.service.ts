@@ -17,6 +17,7 @@ export interface RegistrationContextResponse {
     isRegistrationComplete: boolean;
     displayName: string;
     preferredJobs: string[];
+    characterNames: string[];
     discordName?: string;
 }
 
@@ -108,7 +109,7 @@ export class AuthService {
         return this.http.get<RegistrationContextResponse>(`${this.API_URL}/registration/context`, { withCredentials: true });
     }
 
-    public completeRegistration(payload: { displayName: string; preferredJobs: string[] }): Observable<{ message: string; isRegistrationComplete: boolean }> {
+    public completeRegistration(payload: { displayName: string; preferredJobs: string[]; characterNames: string[] }): Observable<{ message: string; isRegistrationComplete: boolean }> {
         return this.http.post<{ message: string; isRegistrationComplete: boolean }>(
             `${this.API_URL}/registration/complete`,
             payload,

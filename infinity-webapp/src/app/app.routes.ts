@@ -5,6 +5,7 @@ import { authGuard } from './guards/auth.guard';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { RegisterComponent } from './register/register.component';
 import { registrationGuard } from './guards/registration.guard';
+import { CharacterWorkspaceComponent } from './character-workspace/character-workspace.component';
 
 export const routes: Routes = [
     { path: '', component: HomeComponent },
@@ -14,7 +15,9 @@ export const routes: Routes = [
         component: MainLayoutComponent,
         canActivate: [authGuard],
         children: [
-            { path: '', component: DashboardComponent }
+            { path: '', redirectTo: 'characters', pathMatch: 'full' },
+            { path: 'characters', component: CharacterWorkspaceComponent, data: { sectionLabel: 'Characters' } },
+            { path: 'dashboard', component: DashboardComponent, data: { sectionLabel: 'Dashboard' } }
         ]
     },
     { path: '**', redirectTo: '' }

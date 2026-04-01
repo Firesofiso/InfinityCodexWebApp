@@ -18,5 +18,7 @@ public class Character
     [Required]
     public string DataSource { get; set; } = string.Empty;
 
+    public string? PortraitUrl { get; set; }
+
     public DateTime? LastSyncedAt { get; set; }
 }

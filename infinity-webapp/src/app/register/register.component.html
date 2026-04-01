@@ -1,5 +1,5 @@
 <div class="min-h-screen bg-linear-to-br from-slate-950 via-indigo-950 to-slate-900 text-white flex flex-col items-center justify-center px-4">
-    <div class="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-10 flex flex-col items-center w-full max-w-md">
+    <div class="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-10 flex flex-col items-center w-full max-w-2xl">
         <h1 class="text-5xl font-extrabold text-white mb-3 drop-shadow-lg">Infinity</h1>
         <p class="text-white/80 text-center text-lg mb-8">You're approved to register. Finish your profile to access your codex.</p>
 
@@ -26,14 +26,135 @@
                     required
                 />
 
-                <label class="text-white text-sm font-semibold" for="preferredJobs">Preferred jobs (optional)</label>
-                <input
-                    id="preferredJobs"
-                    name="preferredJobs"
-                    [(ngModel)]="preferredJobsRaw"
-                    class="w-full px-4 py-2.5 rounded-lg bg-white/15 border border-white/20 text-white placeholder:text-white/60 focus:outline-none focus:ring-4 focus:ring-indigo-300"
-                    placeholder="Comma-separated, e.g. Warrior, White Mage"
-                />
+                <div class="space-y-3 rounded-xl border border-white/15 bg-white/5 p-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="text-white text-sm font-semibold">Preferred jobs (optional)</label>
+                        <span class="text-xs text-white/70">{{ selectedPreferredJobs().length }} selected</span>
+                    </div>
+
+                    <div class="space-y-2">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-white/60">Basic Jobs</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            @for (job of basicJobs; track job.code) {
+                                <button
+                                    type="button"
+                                    (click)="togglePreferredJob(job.code)"
+                                    class="inline-flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition-all"
+                                    [class.border-indigo-200/70]="isPreferredJobSelected(job.code)"
+                                    [class.bg-indigo-500/25]="isPreferredJobSelected(job.code)"
+                                    [class.text-white]="isPreferredJobSelected(job.code)"
+                                    [class.border-white/15]="!isPreferredJobSelected(job.code)"
+                                    [class.bg-white/5]="!isPreferredJobSelected(job.code)"
+                                    [class.text-white/80]="!isPreferredJobSelected(job.code)"
+                                >
+                                    <span class="rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold">{{ job.code }}</span>
+                                    <span>{{ job.label }}</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-white/60">Advanced Jobs</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            @for (job of advancedJobs; track job.code) {
+                                <button
+                                    type="button"
+                                    (click)="togglePreferredJob(job.code)"
+                                    class="inline-flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition-all"
+                                    [class.border-indigo-200/70]="isPreferredJobSelected(job.code)"
+                                    [class.bg-indigo-500/25]="isPreferredJobSelected(job.code)"
+                                    [class.text-white]="isPreferredJobSelected(job.code)"
+                                    [class.border-white/15]="!isPreferredJobSelected(job.code)"
+                                    [class.bg-white/5]="!isPreferredJobSelected(job.code)"
+                                    [class.text-white/80]="!isPreferredJobSelected(job.code)"
+                                >
+                                    <span class="rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold">{{ job.code }}</span>
+                                    <span>{{ job.label }}</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-2 rounded-xl border border-white/15 bg-white/5 p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="text-white text-sm font-semibold" for="characterSearch">Horizon characters</label>
+                        <span class="text-xs text-white/70">{{ selectedCharacters().length }} / {{ maxCharacters }} selected</span>
+                    </div>
+
+                    <input
+                        id="characterSearch"
+                        name="characterSearch"
+                        [(ngModel)]="characterSearchRaw"
+                        (ngModelChange)="onCharacterSearchInput()"
+                        class="w-full px-4 py-2.5 rounded-lg bg-white/15 border border-white/20 text-white placeholder:text-white/60 focus:outline-none focus:ring-4 focus:ring-indigo-300"
+                        placeholder="Search Horizon character names"
+                    />
+
+                    @if (selectedCharacters().length > 0) {
+                        <div class="flex flex-wrap gap-2">
+                            @for (characterName of selectedCharacters(); track characterName) {
+                                <span class="inline-flex items-center gap-2 rounded-full border border-indigo-300/40 bg-indigo-500/20 px-3 py-1 text-xs text-indigo-100">
+                                    {{ characterName }}
+                                    <button
+                                        type="button"
+                                        (click)="removeCharacter(characterName)"
+                                        class="text-indigo-100/80 hover:text-white"
+                                    >
+                                        x
+                                    </button>
+                                </span>
+                            }
+                        </div>
+                    }
+
+                    @if (isSearchingCharacters()) {
+                        <p class="text-sm text-white/70">Searching Horizon...</p>
+                    }
+
+                    @if (characterSearchError()) {
+                        <p class="text-amber-200 text-sm">{{ characterSearchError() }}</p>
+                    }
+
+                    @if (!isSearchingCharacters() && characterSearchRaw.trim().length >= 2 && searchResults().length === 0 && !characterSearchError()) {
+                        <p class="text-sm text-white/70">No matching characters found.</p>
+                    }
+
+                    @if (searchResults().length > 0) {
+                        <div class="grid gap-2">
+                            @for (result of searchResults(); track result.characterId + '-' + result.name) {
+                                <div class="rounded-lg border border-white/15 bg-white/5 p-3 flex items-center gap-3">
+                                    @if (result.portraitUrl) {
+                                        <img
+                                            [src]="result.portraitUrl"
+                                            [alt]="result.name + ' portrait'"
+                                            class="h-10 w-10 rounded-full object-cover border-2 border-indigo-200/70"
+                                        />
+                                    } @else {
+                                        <div class="h-10 w-10 rounded-full border-2 border-indigo-200/70 bg-white/10 text-white/90 flex items-center justify-center text-sm font-semibold">
+                                            {{ getInitial(result.name) }}
+                                        </div>
+                                    }
+
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate text-sm font-semibold text-white">{{ result.name }}</p>
+                                        <p class="truncate text-xs text-white/70">{{ result.currentJob || result.jobString || 'Unknown job' }}</p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        [disabled]="!canAddCharacter(result.name)"
+                                        (click)="addCharacter(result.name)"
+                                        class="rounded-md px-2 py-1 text-xs font-semibold bg-indigo-500/80 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
 
                 @if (errorMessage()) {
                     <p class="text-amber-200 text-sm">{{ errorMessage() }}</p>

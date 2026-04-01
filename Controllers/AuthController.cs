@@ -33,6 +33,7 @@ public class AuthController : ControllerBase
     private const string RegistrationStatusClaimType = "infinity:registration_status";
     private const string RegistrationStatusPending = "pending";
     private const string RegistrationStatusComplete = "complete";
+    private const string HorizonCharacterDataSource = "horizon-api";
 
     private readonly IConfiguration _configuration;
     private readonly ApplicationDbContext _dbContext;
@@ -284,11 +285,19 @@ public class AuthController : ControllerBase
             return NotFound(new { Message = "Registration record was not found." });
         }
 
+        var characterNames = await _dbContext.Characters
+            .Where(character => character.OwnerUserId == user.Id && character.IsActive)
+            .OrderBy(character => character.Name)
+            .Select(character => character.Name)
+            .Take(3)
+            .ToListAsync();
+
         return Ok(new
         {
             IsRegistrationComplete = user.IsRegistrationComplete,
             DisplayName = user.DisplayName,
             PreferredJobs = SplitPreferredJobs(user.PreferredJobsCsv),
+            CharacterNames = characterNames,
             DiscordName = User.Identity?.Name
         });
     }
@@ -336,6 +345,43 @@ public class AuthController : ControllerBase
         }
 
         var normalizedPreferredJobs = NormalizePreferredJobs(request.PreferredJobs);
+        var normalizedCharacterNames = NormalizeCharacterNames(request.CharacterNames);
+
+        var existingCharacters = await _dbContext.Characters
+            .Where(character => character.OwnerUserId == user.Id && character.DataSource == HorizonCharacterDataSource)
+            .ToListAsync();
+
+        var selectedNames = new HashSet<string>(normalizedCharacterNames, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var existingCharacter in existingCharacters)
+        {
+            if (selectedNames.Contains(existingCharacter.Name))
+            {
+                existingCharacter.IsActive = true;
+                existingCharacter.LastSyncedAt = DateTime.UtcNow;
+                continue;
+            }
+
+            existingCharacter.IsActive = false;
+        }
+
+        var existingNameSet = new HashSet<string>(existingCharacters.Select(character => character.Name), StringComparer.OrdinalIgnoreCase);
+        foreach (var characterName in normalizedCharacterNames)
+        {
+            if (existingNameSet.Contains(characterName))
+            {
+                continue;
+            }
+
+            _dbContext.Characters.Add(new Character
+            {
+                Name = characterName,
+                OwnerUserId = user.Id,
+                IsActive = true,
+                DataSource = HorizonCharacterDataSource,
+                LastSyncedAt = DateTime.UtcNow
+            });
+        }
 
         user.DisplayName = displayName;
         user.IsRegistrationComplete = true;
@@ -761,6 +807,23 @@ public class AuthController : ControllerBase
             .ToList();
     }
 
+    private static List<string> NormalizeCharacterNames(IEnumerable<string>? characterNames)
+    {
+        if (characterNames is null)
+        {
+            return new List<string>();
+        }
+
+        return characterNames
+            .Select(characterName => characterName?.Trim())
+            .Where(characterName => !string.IsNullOrWhiteSpace(characterName))
+            .Select(characterName => characterName!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(characterName => characterName, StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+    }
+
     private static IReadOnlyList<string> SplitPreferredJobs(string preferredJobsCsv)
     {
         if (string.IsNullOrWhiteSpace(preferredJobsCsv))
@@ -792,5 +855,7 @@ public class AuthController : ControllerBase
         public string? DisplayName { get; set; }
 
         public List<string> PreferredJobs { get; set; } = new();
+
+        public List<string> CharacterNames { get; set; } = new();
     }
 }

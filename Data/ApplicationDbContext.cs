@@ -8,6 +8,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<User> Users => Set<User>();
     public DbSet<UserPreferredJob> UserPreferredJobs => Set<UserPreferredJob>();
     public DbSet<Character> Characters => Set<Character>();
+    public DbSet<CharacterMissionProgress> CharacterMissionProgresses => Set<CharacterMissionProgress>();
     public DbSet<CharacterJob> CharacterJobs => Set<CharacterJob>();
     public DbSet<CharacterJobLevel> CharacterJobLevels => Set<CharacterJobLevel>();
     public DbSet<CharacterItem> CharacterItems => Set<CharacterItem>();
@@ -36,6 +37,13 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             entity.HasIndex(character => new { character.OwnerUserId, character.Name })
                 .IsUnique();
+        });
+
+        modelBuilder.Entity<CharacterMissionProgress>(entity =>
+        {
+            entity.HasKey(characterMissionProgress => characterMissionProgress.CharacterId);
+            entity.Property(characterMissionProgress => characterMissionProgress.CharacterId)
+                .ValueGeneratedNever();
         });
 
         modelBuilder.Entity<CharacterJob>(entity =>
