@@ -36,6 +36,9 @@ ScaffoldingReadMe.txt
 
 # Others
 *.dbmdl
+*.db
+*.db-shm
+*.db-wal
 *.bak
 *.backup
 *.mdf
