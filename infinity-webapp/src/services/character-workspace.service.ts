@@ -53,9 +53,15 @@ export interface CharacterWishlistItem {
   sources: string[];
 }
 
+export interface CharacterWishlistAssignment {
+  itemId: number;
+  characterIds: number[];
+}
+
 export interface CharacterWishlist {
   selectedItemIds: number[];
   availableItems: CharacterWishlistItem[];
+  assignments: CharacterWishlistAssignment[];
 }
 
 export interface CharacterWorkspaceDetailResponse {
@@ -89,10 +95,13 @@ export class CharacterWorkspaceService {
     });
   }
 
-  public updateWishlist(characterId: number, itemIds: number[]): Observable<{ selectedItemIds: number[] }> {
-    return this.http.put<{ selectedItemIds: number[] }>(
+  public updateWishlist(
+    characterId: number,
+    assignments: CharacterWishlistAssignment[]
+  ): Observable<{ selectedItemIds: number[]; assignments: CharacterWishlistAssignment[] }> {
+    return this.http.put<{ selectedItemIds: number[]; assignments: CharacterWishlistAssignment[] }>(
       `${this.apiUrl}/${characterId}/wishlist`,
-      { itemIds },
+      { assignments },
       { withCredentials: true }
     );
   }

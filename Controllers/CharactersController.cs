@@ -125,10 +125,20 @@ public sealed class CharactersController(
         var missionProgress = await dbContext.CharacterMissionProgresses
             .FirstOrDefaultAsync(entity => entity.CharacterId == character.Id, cancellationToken);
 
+        var ownedCharacterIds = await dbContext.Characters
+            .Where(entity => entity.OwnerUserId == user.Id && entity.IsActive)
+            .Select(entity => entity.Id)
+            .ToListAsync(cancellationToken);
+
         var selectedItemIdsTask = dbContext.CharacterItemNeeds
             .Where(entity => entity.CharacterId == character.Id && entity.State == WishlistStateNeeded)
             .OrderBy(entity => entity.ItemId)
             .Select(entity => entity.ItemId)
+            .ToListAsync(cancellationToken);
+
+        var wishlistAssignmentsTask = dbContext.CharacterItemNeeds
+            .Where(entity => ownedCharacterIds.Contains(entity.CharacterId) && entity.State == WishlistStateNeeded)
+            .Select(entity => new { entity.ItemId, entity.CharacterId })
             .ToListAsync(cancellationToken);
 
         var activeItemsTask = dbContext.Items
@@ -146,7 +156,7 @@ public sealed class CharactersController(
                                select new ItemSourceTagRow(itemSource.ItemId, contentSource.Tag, contentSource.Name))
             .ToListAsync(cancellationToken);
 
-        await Task.WhenAll(selectedItemIdsTask, activeItemsTask, allowedJobsTask, itemSourcesTask);
+        await Task.WhenAll(selectedItemIdsTask, wishlistAssignmentsTask, activeItemsTask, allowedJobsTask, itemSourcesTask);
 
         HorizonCharacterDetailResponse? horizonResponse = null;
         string? horizonError = null;
@@ -203,6 +213,17 @@ public sealed class CharactersController(
                 sourceTagsByItem.GetValueOrDefault(item.Id, Array.Empty<string>())))
             .ToList();
 
+        var assignments = wishlistAssignmentsTask.Result
+            .GroupBy(row => row.ItemId)
+            .Select(group => new CharacterWishlistAssignmentResponse(
+                group.Key,
+                group.Select(row => row.CharacterId)
+                    .Distinct()
+                    .OrderBy(characterIdValue => characterIdValue)
+                    .ToList()))
+            .OrderBy(row => row.ItemId)
+            .ToList();
+
         return Ok(new CharacterWorkspaceDetailResponse(
             new CharacterWorkspaceListItemResponse(character.Id, character.Name, character.IsActive, character.PortraitUrl, character.LastSyncedAt),
             horizonResponse,
@@ -214,7 +235,7 @@ public sealed class CharactersController(
                 missionProgress?.RiseOfTheZilartMission,
                 missionProgress?.ChainsOfPromathiaMission,
                 missionProgress?.UpdatedAt),
-            new CharacterWishlistResponse(selectedItemIdsTask.Result, wishlistItems)));
+            new CharacterWishlistResponse(selectedItemIdsTask.Result, wishlistItems, assignments)));
     }
 
     [HttpPut("workspace/{characterId:int}/missions")]
@@ -317,10 +338,49 @@ public sealed class CharactersController(
             return NotFound(new { message = "Character was not found." });
         }
 
-        var normalizedItemIds = request.ItemIds
+        var ownedCharacterIds = await dbContext.Characters
+            .Where(entity => entity.OwnerUserId == user.Id && entity.IsActive)
+            .Select(entity => entity.Id)
+            .ToListAsync(cancellationToken);
+
+        var normalizedAssignments = request.Assignments
+            .Where(assignment => assignment is not null)
+            .Select(assignment => new CharacterWishlistAssignmentUpdate(
+                assignment.ItemId,
+                assignment.CharacterIds
+                    .Distinct()
+                    .OrderBy(characterIdValue => characterIdValue)
+                    .ToList()))
+            .Where(assignment => assignment.CharacterIds.Count > 0)
+            .GroupBy(assignment => assignment.ItemId)
+            .Select(group => new CharacterWishlistAssignmentUpdate(
+                group.Key,
+                group.SelectMany(row => row.CharacterIds)
+                    .Distinct()
+                    .OrderBy(characterIdValue => characterIdValue)
+                    .ToList()))
+            .OrderBy(assignment => assignment.ItemId)
+            .ToList();
+
+        if (normalizedAssignments.Count == 0 && request.ItemIds.Count > 0)
+        {
+            normalizedAssignments = request.ItemIds
+                .Distinct()
+                .OrderBy(itemId => itemId)
+                .Select(itemId => new CharacterWishlistAssignmentUpdate(itemId, new List<int> { character.Id }))
+                .ToList();
+        }
+
+        var normalizedItemIds = normalizedAssignments
+            .Select(assignment => assignment.ItemId)
             .Distinct()
             .OrderBy(itemId => itemId)
             .ToList();
+
+        if (normalizedAssignments.Any(assignment => assignment.CharacterIds.Any(characterIdValue => !ownedCharacterIds.Contains(characterIdValue))))
+        {
+            return BadRequest(new { message = "Wishlist assignments contain one or more invalid characters." });
+        }
 
         var validItemIds = await dbContext.Items
             .Where(item => item.IsActive && normalizedItemIds.Contains(item.Id))
@@ -333,7 +393,7 @@ public sealed class CharactersController(
         }
 
         var existingNeeds = await dbContext.CharacterItemNeeds
-            .Where(entity => entity.CharacterId == character.Id)
+            .Where(entity => ownedCharacterIds.Contains(entity.CharacterId) && entity.State == WishlistStateNeeded)
             .ToListAsync(cancellationToken);
 
         if (existingNeeds.Count > 0)
@@ -341,19 +401,32 @@ public sealed class CharactersController(
             dbContext.CharacterItemNeeds.RemoveRange(existingNeeds);
         }
 
-        foreach (var itemId in normalizedItemIds)
+        foreach (var assignment in normalizedAssignments)
         {
-            dbContext.CharacterItemNeeds.Add(new CharacterItemNeed
+            foreach (var assignedCharacterId in assignment.CharacterIds)
             {
-                CharacterId = character.Id,
-                ItemId = itemId,
-                State = WishlistStateNeeded
-            });
+                dbContext.CharacterItemNeeds.Add(new CharacterItemNeed
+                {
+                    CharacterId = assignedCharacterId,
+                    ItemId = assignment.ItemId,
+                    State = WishlistStateNeeded
+                });
+            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new CharacterWishlistSelectionResponse(normalizedItemIds));
+        var selectedItemIds = normalizedAssignments
+            .Where(assignment => assignment.CharacterIds.Contains(character.Id))
+            .Select(assignment => assignment.ItemId)
+            .OrderBy(itemId => itemId)
+            .ToList();
+
+        var responseAssignments = normalizedAssignments
+            .Select(assignment => new CharacterWishlistAssignmentResponse(assignment.ItemId, assignment.CharacterIds))
+            .ToList();
+
+        return Ok(new CharacterWishlistSelectionResponse(selectedItemIds, responseAssignments));
     }
 
     private async Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken)
@@ -440,9 +513,14 @@ public sealed class CharactersController(
 
     public sealed record CharacterWishlistResponse(
         IReadOnlyList<int> SelectedItemIds,
-        IReadOnlyList<CharacterWishlistItemResponse> AvailableItems);
+        IReadOnlyList<CharacterWishlistItemResponse> AvailableItems,
+        IReadOnlyList<CharacterWishlistAssignmentResponse> Assignments);
 
-    public sealed record CharacterWishlistSelectionResponse(IReadOnlyList<int> SelectedItemIds);
+    public sealed record CharacterWishlistSelectionResponse(
+        IReadOnlyList<int> SelectedItemIds,
+        IReadOnlyList<CharacterWishlistAssignmentResponse> Assignments);
+
+    public sealed record CharacterWishlistAssignmentResponse(int ItemId, IReadOnlyList<int> CharacterIds);
 
     public sealed record CharacterWishlistItemResponse(
         int ItemId,
@@ -469,5 +547,16 @@ public sealed class CharactersController(
     public sealed class UpdateCharacterWishlistRequest
     {
         public List<int> ItemIds { get; set; } = new();
+
+        public List<UpdateCharacterWishlistAssignmentRequest> Assignments { get; set; } = new();
     }
+
+    public sealed class UpdateCharacterWishlistAssignmentRequest
+    {
+        public int ItemId { get; set; }
+
+        public List<int> CharacterIds { get; set; } = new();
+    }
+
+    private sealed record CharacterWishlistAssignmentUpdate(int ItemId, List<int> CharacterIds);
 }

@@ -3,7 +3,9 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormsModule } from '@angular/forms';
 import {
   CharacterMissionProgress,
+  CharacterWishlistAssignment,
   CharacterWishlistItem,
+  HorizonJobLevel,
   CharacterWorkspaceDetailResponse,
   CharacterWorkspaceListItem,
   CharacterWorkspaceService
@@ -20,7 +22,13 @@ type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 })
 export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   private readonly characterWorkspaceService = inject(CharacterWorkspaceService);
+  private readonly jobDisplayOrder = [
+    'WAR', 'MNK', 'WHM', 'BLM', 'RDM', 'THF', 'PLD', 'DRK',
+    'BST', 'BRD', 'RNG', 'SAM', 'NIN', 'DRG', 'SMN'
+  ];
+  private readonly jobDisplayOrderMap = new Map(this.jobDisplayOrder.map((jobCode, index) => [jobCode, index]));
   private missionSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private missionSavedNoticeTimer: ReturnType<typeof setTimeout> | null = null;
   private wishlistSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private isSavingMission = false;
   private isSavingWishlist = false;
@@ -37,8 +45,9 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   protected readonly selectedCharacterId = signal<number | null>(null);
   protected readonly detail = signal<CharacterWorkspaceDetailResponse | null>(null);
   protected readonly missionDraft = signal<CharacterMissionProgress>(this.createEmptyMissionProgress());
-  protected readonly selectedWishlistItemIds = signal<number[]>([]);
+  protected readonly wishlistAssignments = signal<CharacterWishlistAssignment[]>([]);
   protected readonly missionSaveState = signal<SaveState>('idle');
+  protected readonly missionSavedNoticeVisible = signal(false);
   protected readonly wishlistSaveState = signal<SaveState>('idle');
   protected readonly missionError = signal<string | null>(null);
   protected readonly wishlistError = signal<string | null>(null);
@@ -76,6 +85,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
   public ngOnDestroy(): void {
     this.clearMissionTimer();
+    this.clearMissionSavedNoticeTimer();
     this.clearWishlistTimer();
   }
 
@@ -85,11 +95,11 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     }
 
     this.selectedCharacterId.set(characterId);
-    this.detail.set(null);
     this.detailError.set(null);
     this.missionError.set(null);
     this.wishlistError.set(null);
     this.missionSaveState.set('idle');
+    this.missionSavedNoticeVisible.set(false);
     this.wishlistSaveState.set('idle');
     this.pendingMissionSave = false;
     this.pendingWishlistSave = false;
@@ -105,24 +115,83 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     }));
 
     this.missionSaveState.set('dirty');
+    this.missionSavedNoticeVisible.set(false);
     this.missionError.set(null);
     this.queueMissionSave();
   }
 
   protected toggleWishlistItem(itemId: number): void {
-    const current = this.selectedWishlistItemIds();
-    const next = current.includes(itemId)
-      ? current.filter((value) => value !== itemId)
-      : [...current, itemId].sort((left, right) => left - right);
+    if (this.isWishlistItemNeeded(itemId)) {
+      this.wishlistAssignments.set(this.wishlistAssignments().filter((assignment) => assignment.itemId !== itemId));
+    } else {
+      const selectedCharacterId = this.selectedCharacterId();
+      if (selectedCharacterId === null) {
+        return;
+      }
 
-    this.selectedWishlistItemIds.set(next);
+      this.wishlistAssignments.set(this.normalizeWishlistAssignments([
+        ...this.wishlistAssignments(),
+        {
+          itemId,
+          characterIds: [selectedCharacterId]
+        }
+      ]));
+    }
+
     this.wishlistSaveState.set('dirty');
     this.wishlistError.set(null);
     this.queueWishlistSave();
   }
 
-  protected isSelectedWishlistItem(itemId: number): boolean {
-    return this.selectedWishlistItemIds().includes(itemId);
+  protected toggleWishlistAssignmentCharacter(itemId: number, characterId: number): void {
+    const assignments = this.wishlistAssignments();
+    const existing = assignments.find((assignment) => assignment.itemId === itemId);
+
+    let nextAssignments: CharacterWishlistAssignment[];
+
+    if (!existing)
+    {
+      const selectedCharacterId = this.selectedCharacterId();
+      const baselineIds = selectedCharacterId !== null && selectedCharacterId !== characterId
+        ? [selectedCharacterId, characterId]
+        : [characterId];
+
+      nextAssignments = [...assignments, { itemId, characterIds: baselineIds }];
+    }
+    else
+    {
+      const hasCharacter = existing.characterIds.includes(characterId);
+      const nextCharacterIds = hasCharacter
+        ? existing.characterIds.filter((value) => value !== characterId)
+        : [...existing.characterIds, characterId];
+
+      nextAssignments = nextCharacterIds.length === 0
+        ? assignments.filter((assignment) => assignment.itemId !== itemId)
+        : assignments.map((assignment) => assignment.itemId === itemId
+          ? { ...assignment, characterIds: nextCharacterIds }
+          : assignment);
+    }
+
+    this.wishlistAssignments.set(this.normalizeWishlistAssignments(nextAssignments));
+    this.wishlistSaveState.set('dirty');
+    this.wishlistError.set(null);
+    this.queueWishlistSave();
+  }
+
+  protected isWishlistItemNeeded(itemId: number): boolean {
+    return this.getWishlistAssignmentCharacterIds(itemId).length > 0;
+  }
+
+  protected getWishlistAssignmentCharacterIds(itemId: number): number[] {
+    return this.wishlistAssignments().find((assignment) => assignment.itemId === itemId)?.characterIds ?? [];
+  }
+
+  protected isWishlistAssignedToCharacter(itemId: number, characterId: number): boolean {
+    return this.getWishlistAssignmentCharacterIds(itemId).includes(characterId);
+  }
+
+  protected getCharacterNameById(characterId: number): string {
+    return this.characters().find((character) => character.characterId === characterId)?.name ?? `Character ${characterId}`;
   }
 
   protected getInitial(name: string): string {
@@ -166,6 +235,23 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     return 'Up to date';
   }
 
+  protected getOrderedJobs(jobs?: HorizonJobLevel[] | null): HorizonJobLevel[] {
+    if (!jobs?.length) {
+      return [];
+    }
+
+    return [...jobs].sort((left, right) => {
+      const leftIndex = this.jobDisplayOrderMap.get(left.jobCode) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = this.jobDisplayOrderMap.get(right.jobCode) ?? Number.MAX_SAFE_INTEGER;
+
+      if (leftIndex !== rightIndex) {
+        return leftIndex - rightIndex;
+      }
+
+      return left.jobCode.localeCompare(right.jobCode);
+    });
+  }
+
   private loadCharacters(): void {
     this.isLoadingCharacters.set(true);
     this.pageError.set(null);
@@ -202,13 +288,17 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
         this.detail.set(response);
         this.missionDraft.set(this.normalizeMissionProgress(response.missions));
-        this.selectedWishlistItemIds.set([...(response.wishlist.selectedItemIds ?? [])].sort((left, right) => left - right));
+        const assignments = this.normalizeWishlistAssignments(
+          response.wishlist.assignments?.length
+            ? response.wishlist.assignments
+            : (response.wishlist.selectedItemIds ?? []).map((itemId) => ({ itemId, characterIds: [characterId] }))
+        );
+        this.wishlistAssignments.set(assignments);
         this.lastSavedMissionSignature = this.serializeMission(this.normalizeMissionProgress(response.missions));
-        this.lastSavedWishlistSignature = this.serializeWishlist(response.wishlist.selectedItemIds ?? []);
+        this.lastSavedWishlistSignature = this.serializeWishlist(assignments);
         this.missionSaveState.set('idle');
         this.wishlistSaveState.set('idle');
         this.detailError.set(null);
-        this.wishlistFilter.set('');
         this.isLoadingDetail.set(false);
       },
       error: (error: { error?: { message?: string } }) => {
@@ -255,7 +345,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     const payload = this.normalizeMissionProgress(this.missionDraft());
     const signature = this.serializeMission(payload);
     if (signature === this.lastSavedMissionSignature) {
-      this.missionSaveState.set('saved');
+      this.missionSaveState.set('idle');
       return;
     }
 
@@ -273,7 +363,8 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
         this.missionDraft.set(normalizedResponse);
         this.detail.update((current) => current ? { ...current, missions: response } : current);
         this.lastSavedMissionSignature = this.serializeMission(normalizedResponse);
-        this.missionSaveState.set('saved');
+        this.missionSaveState.set('idle');
+        this.showMissionSavedNotice();
       },
       error: (error: { error?: { message?: string } }) => {
         if (this.selectedCharacterId() !== characterId) {
@@ -299,8 +390,8 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const selectedItemIds = [...this.selectedWishlistItemIds()].sort((left, right) => left - right);
-    const signature = this.serializeWishlist(selectedItemIds);
+    const assignments = this.normalizeWishlistAssignments(this.wishlistAssignments());
+    const signature = this.serializeWishlist(assignments);
     if (signature === this.lastSavedWishlistSignature) {
       this.wishlistSaveState.set('saved');
       return;
@@ -310,18 +401,25 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     this.wishlistSaveState.set('saving');
     this.wishlistError.set(null);
 
-    this.characterWorkspaceService.updateWishlist(characterId, selectedItemIds).subscribe({
+    this.characterWorkspaceService.updateWishlist(characterId, assignments).subscribe({
       next: (response) => {
         if (this.selectedCharacterId() !== characterId) {
           return;
         }
 
-        const normalizedIds = [...(response.selectedItemIds ?? [])].sort((left, right) => left - right);
-        this.selectedWishlistItemIds.set(normalizedIds);
+        const normalizedAssignments = this.normalizeWishlistAssignments(response.assignments ?? []);
+        this.wishlistAssignments.set(normalizedAssignments);
         this.detail.update((current) => current
-          ? { ...current, wishlist: { ...current.wishlist, selectedItemIds: normalizedIds } }
+          ? {
+            ...current,
+            wishlist: {
+              ...current.wishlist,
+              selectedItemIds: [...(response.selectedItemIds ?? [])].sort((left, right) => left - right),
+              assignments: normalizedAssignments
+            }
+          }
           : current);
-        this.lastSavedWishlistSignature = this.serializeWishlist(normalizedIds);
+        this.lastSavedWishlistSignature = this.serializeWishlist(normalizedAssignments);
         this.wishlistSaveState.set('saved');
       },
       error: (error: { error?: { message?: string } }) => {
@@ -334,7 +432,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.isSavingWishlist = false;
-        if (this.pendingWishlistSave || this.serializeWishlist(this.selectedWishlistItemIds()) !== this.lastSavedWishlistSignature) {
+        if (this.pendingWishlistSave || this.serializeWishlist(this.wishlistAssignments()) !== this.lastSavedWishlistSignature) {
           this.pendingWishlistSave = false;
           this.queueWishlistSave();
         }
@@ -346,6 +444,21 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     if (this.missionSaveTimer) {
       clearTimeout(this.missionSaveTimer);
       this.missionSaveTimer = null;
+    }
+  }
+
+  private showMissionSavedNotice(): void {
+    this.clearMissionSavedNoticeTimer();
+    this.missionSavedNoticeVisible.set(true);
+    this.missionSavedNoticeTimer = setTimeout(() => {
+      this.missionSavedNoticeVisible.set(false);
+    }, 1800);
+  }
+
+  private clearMissionSavedNoticeTimer(): void {
+    if (this.missionSavedNoticeTimer) {
+      clearTimeout(this.missionSavedNoticeTimer);
+      this.missionSavedNoticeTimer = null;
     }
   }
 
@@ -388,7 +501,18 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
-  private serializeWishlist(itemIds: number[]): string {
-    return JSON.stringify([...itemIds].sort((left, right) => left - right));
+  private normalizeWishlistAssignments(assignments: CharacterWishlistAssignment[]): CharacterWishlistAssignment[] {
+    return assignments
+      .filter((assignment) => assignment.itemId > 0)
+      .map((assignment) => ({
+        itemId: assignment.itemId,
+        characterIds: [...new Set(assignment.characterIds)].sort((left, right) => left - right)
+      }))
+      .filter((assignment) => assignment.characterIds.length > 0)
+      .sort((left, right) => left.itemId - right.itemId);
+  }
+
+  private serializeWishlist(assignments: CharacterWishlistAssignment[]): string {
+    return JSON.stringify(this.normalizeWishlistAssignments(assignments));
   }
 }
