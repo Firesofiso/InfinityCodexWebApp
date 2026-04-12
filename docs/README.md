@@ -7,6 +7,8 @@ This folder is the working documentation set for continuing development with Cod
 - [Current State](E:\Repos\InfinityCodexWebApp\docs\CURRENT_STATE.md): what is already built, what is only scaffolded, and the main risks discovered during analysis.
 - [Agent Handoff Guide](E:\Repos\InfinityCodexWebApp\docs\AGENT_HANDOFF.md): how to approach this repo in future agent threads without re-discovering the same context.
 - [Feature Brainstorm](E:\Repos\InfinityCodexWebApp\docs\FEATURE_BRAINSTORM.md): a structured backlog starter for deciding what to build next.
+- [Feature Progress Tracker](E:\Repos\InfinityCodexWebApp\docs\FEATURE_PROGRESS.md): one-page status view of tracked features and next milestones.
+- [Feature Specs](E:\Repos\InfinityCodexWebApp\docs\features\README.md): implementation-focused docs for individual features so async threads can target a single scope.
 
 ## Verified Baseline
 
