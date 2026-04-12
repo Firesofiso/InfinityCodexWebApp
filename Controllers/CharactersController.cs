@@ -234,6 +234,7 @@ public sealed class CharactersController(
                 missionProgress?.WindurstMission,
                 missionProgress?.RiseOfTheZilartMission,
                 missionProgress?.ChainsOfPromathiaMission,
+                missionProgress?.EpilogueMission,
                 missionProgress?.UpdatedAt),
             new CharacterWishlistResponse(selectedItemIdsTask.Result, wishlistItems, assignments)));
     }
@@ -270,12 +271,14 @@ public sealed class CharactersController(
         var windurstMission = NormalizeMissionValue(request.WindurstMission);
         var riseOfTheZilartMission = NormalizeMissionValue(request.RiseOfTheZilartMission);
         var chainsOfPromathiaMission = NormalizeMissionValue(request.ChainsOfPromathiaMission);
+        var epilogueMission = NormalizeMissionValue(request.EpilogueMission);
 
         if (!ValidateMissionLength(sanDOriaMission)
             || !ValidateMissionLength(bastokMission)
             || !ValidateMissionLength(windurstMission)
             || !ValidateMissionLength(riseOfTheZilartMission)
-            || !ValidateMissionLength(chainsOfPromathiaMission))
+            || !ValidateMissionLength(chainsOfPromathiaMission)
+            || !ValidateMissionLength(epilogueMission))
         {
             return BadRequest(new { message = $"Mission values must be {MissionTextMaxLength} characters or fewer." });
         }
@@ -298,6 +301,7 @@ public sealed class CharactersController(
         missionProgress.WindurstMission = windurstMission;
         missionProgress.RiseOfTheZilartMission = riseOfTheZilartMission;
         missionProgress.ChainsOfPromathiaMission = chainsOfPromathiaMission;
+        missionProgress.EpilogueMission = epilogueMission;
         missionProgress.UpdatedAt = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -308,6 +312,7 @@ public sealed class CharactersController(
             missionProgress.WindurstMission,
             missionProgress.RiseOfTheZilartMission,
             missionProgress.ChainsOfPromathiaMission,
+            missionProgress.EpilogueMission,
             missionProgress.UpdatedAt));
     }
 
@@ -509,6 +514,7 @@ public sealed class CharactersController(
         string? WindurstMission,
         string? RiseOfTheZilartMission,
         string? ChainsOfPromathiaMission,
+        string? EpilogueMission,
         DateTime? UpdatedAt);
 
     public sealed record CharacterWishlistResponse(
@@ -542,6 +548,8 @@ public sealed class CharactersController(
         public string? RiseOfTheZilartMission { get; set; }
 
         public string? ChainsOfPromathiaMission { get; set; }
+
+        public string? EpilogueMission { get; set; }
     }
 
     public sealed class UpdateCharacterWishlistRequest

@@ -22,5 +22,8 @@ public class CharacterMissionProgress
     [StringLength(128)]
     public string? ChainsOfPromathiaMission { get; set; }
 
+    [StringLength(128)]
+    public string? EpilogueMission { get; set; }
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -145,6 +145,10 @@ namespace InfinityCodexWebApp.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("EpilogueMission")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RiseOfTheZilartMission")
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");

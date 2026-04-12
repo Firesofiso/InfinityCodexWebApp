@@ -94,52 +94,92 @@
     <div class="mt-4 grid gap-3">
       <label class="grid gap-1 text-sm text-white/70">
         <span>San d'Oria</span>
-        <input
+        <ng-select
+          class="mission-select"
+          [items]="sanDOriaMissionOptions"
+          bindLabel="label"
+          bindValue="value"
+          [searchable]="true"
+          [clearable]="true"
           [ngModel]="missionDraft.sanDOriaMission"
           (ngModelChange)="onMissionInput('sanDOriaMission', $event)"
-          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
-          placeholder="Current San d'Oria mission"
-        />
+          placeholder="Current San d'Oria mission">
+        </ng-select>
       </label>
 
       <label class="grid gap-1 text-sm text-white/70">
         <span>Bastok</span>
-        <input
+        <ng-select
+          class="mission-select"
+          [items]="bastokMissionOptions"
+          bindLabel="label"
+          bindValue="value"
+          [searchable]="true"
+          [clearable]="true"
           [ngModel]="missionDraft.bastokMission"
           (ngModelChange)="onMissionInput('bastokMission', $event)"
-          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
-          placeholder="Current Bastok mission"
-        />
+          placeholder="Current Bastok mission">
+        </ng-select>
       </label>
 
       <label class="grid gap-1 text-sm text-white/70">
         <span>Windurst</span>
-        <input
+        <ng-select
+          class="mission-select"
+          [items]="windurstMissionOptions"
+          bindLabel="label"
+          bindValue="value"
+          [searchable]="true"
+          [clearable]="true"
           [ngModel]="missionDraft.windurstMission"
           (ngModelChange)="onMissionInput('windurstMission', $event)"
-          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
-          placeholder="Current Windurst mission"
-        />
+          placeholder="Current Windurst mission">
+        </ng-select>
       </label>
 
       <label class="grid gap-1 text-sm text-white/70">
         <span>Rise of the Zilart</span>
-        <input
+        <ng-select
+          class="mission-select"
+          [items]="riseOfTheZilartMissionOptions"
+          bindLabel="label"
+          bindValue="value"
+          [searchable]="true"
+          [clearable]="true"
           [ngModel]="missionDraft.riseOfTheZilartMission"
           (ngModelChange)="onMissionInput('riseOfTheZilartMission', $event)"
-          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
-          placeholder="Current Zilart mission"
-        />
+          placeholder="Current Zilart mission">
+        </ng-select>
       </label>
 
       <label class="grid gap-1 text-sm text-white/70">
         <span>Chains of Promathia</span>
-        <input
+        <ng-select
+          class="mission-select"
+          [items]="chainsOfPromathiaMissionOptions"
+          bindLabel="label"
+          bindValue="value"
+          [searchable]="true"
+          [clearable]="true"
           [ngModel]="missionDraft.chainsOfPromathiaMission"
           (ngModelChange)="onMissionInput('chainsOfPromathiaMission', $event)"
-          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
-          placeholder="Current CoP mission"
-        />
+          placeholder="Current CoP mission">
+        </ng-select>
+      </label>
+
+      <label class="grid gap-1 text-sm text-white/70">
+        <span>Epilogue</span>
+        <ng-select
+          class="mission-select"
+          [items]="epilogueMissionOptions"
+          bindLabel="label"
+          bindValue="value"
+          [searchable]="true"
+          [clearable]="true"
+          [ngModel]="missionDraft.epilogueMission"
+          (ngModelChange)="onMissionInput('epilogueMission', $event)"
+          placeholder="Current Epilogue mission">
+        </ng-select>
       </label>
     </div>
   </div>

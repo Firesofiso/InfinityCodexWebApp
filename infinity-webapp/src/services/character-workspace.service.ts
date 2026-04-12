@@ -41,6 +41,7 @@ export interface CharacterMissionProgress {
   windurstMission?: string | null;
   riseOfTheZilartMission?: string | null;
   chainsOfPromathiaMission?: string | null;
+  epilogueMission?: string | null;
   updatedAt?: string | null;
 }
 

@@ -174,10 +174,10 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     this.persistMainCharacterId(characterId);
   }
 
-  protected updateMission(field: keyof CharacterMissionProgress, value: string): void {
+  protected updateMission(field: keyof CharacterMissionProgress, value: string | null): void {
     this.missionDraft.update((current) => ({
       ...current,
-      [field]: value
+      [field]: this.normalizeMissionValue(value)
     }));
 
     this.missionSaveState.set('dirty');
@@ -521,34 +521,46 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
   private normalizeMissionProgress(progress: CharacterMissionProgress): CharacterMissionProgress {
     return {
-      sanDOriaMission: progress.sanDOriaMission ?? '',
-      bastokMission: progress.bastokMission ?? '',
-      windurstMission: progress.windurstMission ?? '',
-      riseOfTheZilartMission: progress.riseOfTheZilartMission ?? '',
-      chainsOfPromathiaMission: progress.chainsOfPromathiaMission ?? '',
+      sanDOriaMission: this.normalizeMissionValue(progress.sanDOriaMission),
+      bastokMission: this.normalizeMissionValue(progress.bastokMission),
+      windurstMission: this.normalizeMissionValue(progress.windurstMission),
+      riseOfTheZilartMission: this.normalizeMissionValue(progress.riseOfTheZilartMission),
+      chainsOfPromathiaMission: this.normalizeMissionValue(progress.chainsOfPromathiaMission),
+      epilogueMission: this.normalizeMissionValue(progress.epilogueMission),
       updatedAt: progress.updatedAt ?? null
     };
   }
 
   private createEmptyMissionProgress(): CharacterMissionProgress {
     return {
-      sanDOriaMission: '',
-      bastokMission: '',
-      windurstMission: '',
-      riseOfTheZilartMission: '',
-      chainsOfPromathiaMission: '',
+      sanDOriaMission: null,
+      bastokMission: null,
+      windurstMission: null,
+      riseOfTheZilartMission: null,
+      chainsOfPromathiaMission: null,
+      epilogueMission: null,
       updatedAt: null
     };
   }
 
   private serializeMission(progress: CharacterMissionProgress): string {
     return JSON.stringify({
-      sanDOriaMission: progress.sanDOriaMission ?? '',
-      bastokMission: progress.bastokMission ?? '',
-      windurstMission: progress.windurstMission ?? '',
-      riseOfTheZilartMission: progress.riseOfTheZilartMission ?? '',
-      chainsOfPromathiaMission: progress.chainsOfPromathiaMission ?? ''
+      sanDOriaMission: this.normalizeMissionValue(progress.sanDOriaMission),
+      bastokMission: this.normalizeMissionValue(progress.bastokMission),
+      windurstMission: this.normalizeMissionValue(progress.windurstMission),
+      riseOfTheZilartMission: this.normalizeMissionValue(progress.riseOfTheZilartMission),
+      chainsOfPromathiaMission: this.normalizeMissionValue(progress.chainsOfPromathiaMission),
+      epilogueMission: this.normalizeMissionValue(progress.epilogueMission)
     });
+  }
+
+  private normalizeMissionValue(value: string | null | undefined): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   private normalizeWishlistAssignments(assignments: CharacterWishlistAssignment[]): CharacterWishlistAssignment[] {

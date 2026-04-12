@@ -1,19 +1,29 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { NgSelectModule } from '@ng-select/ng-select';
 import {
   CharacterMissionProgress,
   CharacterWorkspaceDetailResponse,
   CharacterWorkspaceListItem,
   HorizonJobLevel
 } from '../../services/character-workspace.service';
+import {
+  BASTOK_MISSIONS,
+  CHAINS_OF_PROMATHIA_MISSIONS,
+  EPILOGUE_MISSIONS,
+  MissionOption,
+  RISE_OF_THE_ZILART_MISSIONS,
+  SAN_DORIA_MISSIONS,
+  WINDURST_MISSIONS
+} from './mission-catalog';
 
 type MissionPanelSaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 
 @Component({
   selector: 'app-character-detail-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NgSelectModule],
   templateUrl: './character-detail-panel.component.html',
   styleUrl: './character-detail-panel.component.css'
 })
@@ -24,16 +34,24 @@ export class CharacterDetailPanelComponent implements OnChanges, OnDestroy {
   @Input() public currentDetail: CharacterWorkspaceDetailResponse | null = null;
   @Input() public isLoadingDetail = false;
   @Input() public missionDraft: CharacterMissionProgress = {
-    sanDOriaMission: '',
-    bastokMission: '',
-    windurstMission: '',
-    riseOfTheZilartMission: '',
-    chainsOfPromathiaMission: '',
+    sanDOriaMission: null,
+    bastokMission: null,
+    windurstMission: null,
+    riseOfTheZilartMission: null,
+    chainsOfPromathiaMission: null,
+    epilogueMission: null,
     updatedAt: null
   };
   @Input() public missionSaveState: MissionPanelSaveState = 'idle';
   @Input() public missionSavedNoticeVisible = false;
   @Input() public missionError: string | null = null;
+
+  public readonly sanDOriaMissionOptions: MissionOption[] = SAN_DORIA_MISSIONS;
+  public readonly bastokMissionOptions: MissionOption[] = BASTOK_MISSIONS;
+  public readonly windurstMissionOptions: MissionOption[] = WINDURST_MISSIONS;
+  public readonly riseOfTheZilartMissionOptions: MissionOption[] = RISE_OF_THE_ZILART_MISSIONS;
+  public readonly chainsOfPromathiaMissionOptions: MissionOption[] = CHAINS_OF_PROMATHIA_MISSIONS;
+  public readonly epilogueMissionOptions: MissionOption[] = EPILOGUE_MISSIONS;
 
   public showLoadingStatus = false;
   public loadingStatusFadingOut = false;
@@ -42,7 +60,7 @@ export class CharacterDetailPanelComponent implements OnChanges, OnDestroy {
 
   @Output() public readonly characterSelected = new EventEmitter<number>();
   @Output() public readonly mainCharacterSelected = new EventEmitter<number>();
-  @Output() public readonly missionChanged = new EventEmitter<{ field: keyof CharacterMissionProgress; value: string }>();
+  @Output() public readonly missionChanged = new EventEmitter<{ field: keyof CharacterMissionProgress; value: string | null }>();
 
   private readonly jobDisplayOrder = [
     'WAR', 'MNK', 'WHM', 'BLM', 'RDM', 'THF', 'PLD', 'DRK',
@@ -132,7 +150,7 @@ export class CharacterDetailPanelComponent implements OnChanges, OnDestroy {
     return 'Click to view';
   }
 
-  public onMissionInput(field: keyof CharacterMissionProgress, value: string): void {
+  public onMissionInput(field: keyof CharacterMissionProgress, value: string | null): void {
     this.missionChanged.emit({ field, value });
   }
 
