@@ -5,28 +5,80 @@ import {
   CharacterMissionProgress,
   CharacterWishlistAssignment,
   CharacterWishlistItem,
-  HorizonJobLevel,
   CharacterWorkspaceDetailResponse,
   CharacterWorkspaceListItem,
   CharacterWorkspaceService
 } from '../../services/character-workspace.service';
+import { CharacterDetailPanelComponent } from './character-detail-panel.component';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 
 @Component({
   selector: 'app-character-workspace',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CharacterDetailPanelComponent],
   templateUrl: './character-workspace.component.html',
   styleUrl: './character-workspace.component.css'
 })
 export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   private readonly characterWorkspaceService = inject(CharacterWorkspaceService);
-  private readonly jobDisplayOrder = [
-    'WAR', 'MNK', 'WHM', 'BLM', 'RDM', 'THF', 'PLD', 'DRK',
-    'BST', 'BRD', 'RNG', 'SAM', 'NIN', 'DRG', 'SMN'
+  private readonly mainCharacterStorageKey = 'infinity.mainCharacterId';
+  private readonly previewWishlistItems: CharacterWishlistItem[] = [
+    {
+      itemId: 900001,
+      name: 'Abyssal War Hammer',
+      requiredLevel: 75,
+      slot: 'Main Hand',
+      notes: 'Preview seed item for styling checks.',
+      allowedJobs: ['WAR', 'PLD', 'DRK'],
+      sources: ['Dynamis', 'Relic Upgrade']
+    },
+    {
+      itemId: 900002,
+      name: 'Sageweave Circlet',
+      requiredLevel: 72,
+      slot: 'Head',
+      notes: 'Magic accuracy and enfeebling bonus.',
+      allowedJobs: ['WHM', 'BLM', 'RDM', 'SMN'],
+      sources: ['Sky', 'Crafted']
+    },
+    {
+      itemId: 900003,
+      name: 'Ranger\'s Hawk Mantle',
+      requiredLevel: 70,
+      slot: 'Back',
+      notes: 'Ranged attack focused cape for marksmanship builds.',
+      allowedJobs: ['RNG', 'THF', 'NIN'],
+      sources: ['HNMs']
+    },
+    {
+      itemId: 900004,
+      name: 'Elder Dragon Ring',
+      requiredLevel: 73,
+      slot: 'Ring',
+      notes: null,
+      allowedJobs: [],
+      sources: ['Kirin', 'Event Token Exchange']
+    },
+    {
+      itemId: 900005,
+      name: 'Corsair\'s Phantom Belt',
+      requiredLevel: 68,
+      slot: 'Waist',
+      notes: 'Great for support and ranged hybrid sets.',
+      allowedJobs: ['BRD', 'RNG', 'NIN'],
+      sources: ['Limbus']
+    },
+    {
+      itemId: 900006,
+      name: 'Verdant Aegis Greaves',
+      requiredLevel: 71,
+      slot: 'Feet',
+      notes: 'High evasion option for survivability sets.',
+      allowedJobs: ['THF', 'NIN', 'DNC'],
+      sources: []
+    }
   ];
-  private readonly jobDisplayOrderMap = new Map(this.jobDisplayOrder.map((jobCode, index) => [jobCode, index]));
   private missionSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private missionSavedNoticeTimer: ReturnType<typeof setTimeout> | null = null;
   private wishlistSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -42,6 +94,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   protected readonly pageError = signal<string | null>(null);
   protected readonly detailError = signal<string | null>(null);
   protected readonly characters = signal<CharacterWorkspaceListItem[]>([]);
+  protected readonly mainCharacterId = signal<number | null>(null);
   protected readonly selectedCharacterId = signal<number | null>(null);
   protected readonly detail = signal<CharacterWorkspaceDetailResponse | null>(null);
   protected readonly missionDraft = signal<CharacterMissionProgress>(this.createEmptyMissionProgress());
@@ -62,11 +115,15 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       return [] as CharacterWishlistItem[];
     }
 
+    const wishlistItems = detail.wishlist.availableItems.length > 0
+      ? detail.wishlist.availableItems
+      : this.previewWishlistItems;
+
     if (!query) {
-      return detail.wishlist.availableItems;
+      return wishlistItems;
     }
 
-    return detail.wishlist.availableItems.filter((item) => {
+    return wishlistItems.filter((item) => {
       const haystacks = [
         item.name,
         item.slot ?? '',
@@ -106,6 +163,15 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     this.clearMissionTimer();
     this.clearWishlistTimer();
     this.loadCharacterDetail(characterId);
+  }
+
+  protected setMainCharacter(characterId: number): void {
+    if (!this.characters().some((character) => character.characterId === characterId)) {
+      return;
+    }
+
+    this.mainCharacterId.set(characterId);
+    this.persistMainCharacterId(characterId);
   }
 
   protected updateMission(field: keyof CharacterMissionProgress, value: string): void {
@@ -194,10 +260,6 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     return this.characters().find((character) => character.characterId === characterId)?.name ?? `Character ${characterId}`;
   }
 
-  protected getInitial(name: string): string {
-    return name.trim().charAt(0).toUpperCase();
-  }
-
   protected getNationLabel(nation?: number | null): string {
     switch (nation) {
       case 0:
@@ -235,23 +297,6 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     return 'Up to date';
   }
 
-  protected getOrderedJobs(jobs?: HorizonJobLevel[] | null): HorizonJobLevel[] {
-    if (!jobs?.length) {
-      return [];
-    }
-
-    return [...jobs].sort((left, right) => {
-      const leftIndex = this.jobDisplayOrderMap.get(left.jobCode) ?? Number.MAX_SAFE_INTEGER;
-      const rightIndex = this.jobDisplayOrderMap.get(right.jobCode) ?? Number.MAX_SAFE_INTEGER;
-
-      if (leftIndex !== rightIndex) {
-        return leftIndex - rightIndex;
-      }
-
-      return left.jobCode.localeCompare(right.jobCode);
-    });
-  }
-
   private loadCharacters(): void {
     this.isLoadingCharacters.set(true);
     this.pageError.set(null);
@@ -263,12 +308,17 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
         this.isLoadingCharacters.set(false);
 
         if (characters.length === 0) {
+          this.mainCharacterId.set(null);
+          this.persistMainCharacterId(null);
           this.selectedCharacterId.set(null);
           this.detail.set(null);
           return;
         }
 
-        this.selectCharacter(characters[0].characterId);
+        const preferredCharacterId = this.resolvePreferredCharacterId(characters, response.mainCharacterId ?? null);
+        this.mainCharacterId.set(preferredCharacterId);
+        this.persistMainCharacterId(preferredCharacterId);
+        this.selectCharacter(preferredCharacterId);
       },
       error: (error: { error?: { message?: string } }) => {
         this.pageError.set(error.error?.message ?? 'Unable to load your characters.');
@@ -514,5 +564,46 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
   private serializeWishlist(assignments: CharacterWishlistAssignment[]): string {
     return JSON.stringify(this.normalizeWishlistAssignments(assignments));
+  }
+
+  private resolvePreferredCharacterId(characters: CharacterWorkspaceListItem[], serverMainCharacterId: number | null): number {
+    const fallbackId = characters[0].characterId;
+
+    if (serverMainCharacterId !== null && characters.some((character) => character.characterId === serverMainCharacterId)) {
+      return serverMainCharacterId;
+    }
+
+    const storedMainCharacterId = this.readStoredMainCharacterId();
+    if (storedMainCharacterId !== null && characters.some((character) => character.characterId === storedMainCharacterId)) {
+      return storedMainCharacterId;
+    }
+
+    return fallbackId;
+  }
+
+  private readStoredMainCharacterId(): number | null {
+    try {
+      const raw = localStorage.getItem(this.mainCharacterStorageKey);
+      if (!raw) {
+        return null;
+      }
+
+      const parsed = Number(raw);
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private persistMainCharacterId(characterId: number | null): void {
+    try {
+      if (characterId === null) {
+        localStorage.removeItem(this.mainCharacterStorageKey);
+      } else {
+        localStorage.setItem(this.mainCharacterStorageKey, String(characterId));
+      }
+    } catch {
+      // Local storage may be unavailable in strict browser contexts.
+    }
   }
 }

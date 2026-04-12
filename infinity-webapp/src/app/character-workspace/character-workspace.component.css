@@ -2,27 +2,3 @@
   display: block;
   min-height: 100%;
 }
-
-.mission-saved-toast {
-  animation: missionSavedFade 1.8s ease forwards;
-}
-
-@keyframes missionSavedFade {
-  0% {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-
-  15% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  75% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-  }
-}

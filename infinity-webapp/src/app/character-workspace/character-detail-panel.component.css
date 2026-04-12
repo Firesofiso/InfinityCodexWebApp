@@ -1,0 +1,224 @@
+:host {
+  display: block;
+}
+
+.main-character-action {
+  border: 0;
+  background: transparent;
+  color: rgb(103 232 249 / 0.85);
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.main-character-action:hover {
+  color: rgb(165 243 252 / 1);
+}
+
+.main-character-label {
+  color: rgb(134 239 172 / 0.9);
+  font-size: 0.68rem;
+}
+
+.loading-inline-status {
+  opacity: 0.75;
+}
+
+.loading-inline-status.is-loading {
+  animation: loadingInlineFade 1.1s ease-in-out infinite alternate;
+}
+
+.loading-inline-status.is-fading-out {
+  animation: loadingInlineFadeOut 260ms ease forwards;
+}
+
+.character-portrait-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  overflow-x: hidden;
+  padding: 0.25rem;
+  min-width: 0;
+}
+
+.character-portrait-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 3.5rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgb(255 255 255 / 0.8);
+  padding: 0.2rem 0.15rem;
+  flex: 0 0 3.5rem;
+  opacity: 0.58;
+  transform: translateX(0) scale(0.96);
+  transition: flex-basis 220ms ease, opacity 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+  text-align: left;
+}
+
+.character-portrait-tab:hover {
+  opacity: 0.86;
+}
+
+.character-portrait-tab.is-active {
+  flex-basis: min(9.5rem, 44vw);
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.character-portrait-tab__avatar-wrap {
+  flex: none;
+}
+
+.character-portrait-tab__avatar,
+.character-portrait-tab__fallback {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+}
+
+.character-portrait-tab__avatar {
+  object-fit: cover;
+  border: 1px solid rgb(165 243 252 / 0.6);
+}
+
+.character-portrait-tab__fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(165 243 252 / 0.35);
+  background: rgb(34 211 238 / 0.12);
+  font-weight: 700;
+  color: rgb(207 250 254 / 1);
+}
+
+.character-portrait-tab.is-active .character-portrait-tab__avatar {
+  border-width: 2px;
+  border-color: rgb(103 232 249 / 0.95);
+}
+
+.character-portrait-tab.is-active .character-portrait-tab__fallback {
+  border-width: 2px;
+  border-color: rgb(103 232 249 / 0.75);
+}
+
+.character-portrait-tab__content {
+  min-width: 0;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  transition: opacity 180ms ease, max-width 220ms ease;
+}
+
+.character-portrait-tab.is-active .character-portrait-tab__content {
+  opacity: 1;
+  max-width: 5.5rem;
+}
+
+.character-portrait-tab__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.character-portrait-tabs--compact {
+  gap: 0.45rem;
+  padding: 0.1rem;
+}
+
+.character-portrait-tab--compact {
+  min-width: 3.1rem;
+  flex-basis: 3.1rem;
+}
+
+.character-portrait-tab--compact.is-active {
+  flex-basis: min(8.75rem, 42vw);
+}
+
+.character-portrait-tab__content--compact {
+  transition: opacity 160ms ease, max-width 200ms ease;
+}
+
+.character-portrait-tab__name--compact {
+  font-size: 0.76rem;
+}
+
+.character-portrait-tab__detail {
+  font-size: 0.72rem;
+  line-height: 1.2;
+  margin-top: 0.2rem;
+  color: rgb(255 255 255 / 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.character-portrait-tab__detail--compact {
+  font-size: 0.68rem;
+  margin-top: 0.12rem;
+}
+
+@media (max-width: 767px) {
+  .character-portrait-tab.is-active {
+    flex-basis: min(8.25rem, 48vw);
+  }
+
+  .character-portrait-tab--compact.is-active {
+    flex-basis: min(7.75rem, 46vw);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-inline-status {
+    animation: none;
+  }
+}
+
+@keyframes loadingInlineFade {
+  from {
+    opacity: 0.25;
+  }
+
+  to {
+    opacity: 0.95;
+  }
+}
+
+@keyframes loadingInlineFadeOut {
+  from {
+    opacity: 0.8;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.mission-saved-toast {
+  animation: missionSavedFade 1.8s ease forwards;
+}
+
+@keyframes missionSavedFade {
+  0% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  75% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}

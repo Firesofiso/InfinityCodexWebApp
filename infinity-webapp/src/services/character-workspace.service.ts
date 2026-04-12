@@ -12,6 +12,7 @@ export interface CharacterWorkspaceListItem {
 
 export interface CharacterWorkspaceListResponse {
   characters: CharacterWorkspaceListItem[];
+  mainCharacterId?: number | null;
 }
 
 export interface HorizonJobLevel {

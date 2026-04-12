@@ -1,0 +1,146 @@
+<section class="space-y-4" *ngIf="currentDetail as detail">
+  <div class="relative rounded-lg border border-white/10 bg-white/5 p-4">
+    <div>
+      <div class="mb-2 flex items-center justify-between gap-2 px-1">
+        <h4 class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-white/45">Characters</h4>
+        <button
+          *ngIf="selectedCharacterId !== null && !isMainCharacter(selectedCharacterId)"
+          type="button"
+          class="main-character-action"
+          (click)="setSelectedAsMainCharacter()"
+        >
+          Set as main
+        </button>
+        <span *ngIf="selectedCharacterId !== null && isMainCharacter(selectedCharacterId)" class="main-character-label">
+          Main character
+        </span>
+      </div>
+
+      <div class="character-portrait-tabs character-portrait-tabs--compact">
+        <button
+          *ngFor="let character of getDisplayCharacters()"
+          type="button"
+          (click)="selectCharacter(character.characterId)"
+          class="character-portrait-tab character-portrait-tab--compact"
+          [class.is-active]="isActive(character.characterId)"
+          [attr.title]="character.name + ' · ' + getDetailText(character)"
+        >
+          <div class="character-portrait-tab__avatar-wrap">
+            <img
+              *ngIf="getPortraitUrl(character) as portraitUrl"
+              [src]="portraitUrl"
+              [alt]="character.name + ' portrait'"
+              class="character-portrait-tab__avatar"
+            />
+            <div *ngIf="!getPortraitUrl(character)" class="character-portrait-tab__fallback">
+              {{ getInitial(character.name) }}
+            </div>
+          </div>
+
+          <div class="character-portrait-tab__content character-portrait-tab__content--compact">
+            <div class="character-portrait-tab__name character-portrait-tab__name--compact">{{ character.name }}</div>
+            <div class="character-portrait-tab__detail character-portrait-tab__detail--compact">
+              {{ getDetailText(character) }}
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="detail.horizonError" class="mt-3 rounded-md border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+      {{ detail.horizonError }}
+    </div>
+
+    <div class="mt-4 rounded-md border border-white/10 bg-black/10 p-3">
+      <div class="text-xs uppercase tracking-[0.2em] text-white/40">Jobs</div>
+      <div class="mt-2 grid grid-cols-2 gap-2">
+        <div
+          *ngFor="let job of getOrderedJobs(detail.horizon?.jobs)"
+          class="flex items-center justify-between rounded-sm border px-2.5 py-1.5 text-xs"
+          [ngClass]="{
+            'border-amber-300/45 bg-amber-500/15 text-amber-100': job.level === 75,
+            'border-blue-300/40 bg-blue-500/15 text-blue-100': job.level >= 37 && job.level !== 75,
+            'border-white/10 bg-white/5 text-white/70': job.level < 37
+          }"
+        >
+          <span class="font-medium">{{ job.jobCode }}</span>
+          <span>{{ job.level }}</span>
+        </div>
+        <span *ngIf="(detail.horizon?.jobs?.length || 0) === 0" class="col-span-2 text-xs text-white/50">No job levels returned.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-lg border border-white/10 bg-linear-to-br from-cyan-400/15 via-transparent to-emerald-400/10 p-4">
+    <div class="flex items-center gap-3">
+      <div>
+        <h3 class="text-lg font-semibold text-white">Mission Progress</h3>
+        <p class="text-sm text-white/60">Character-specific progress for the selected profile.</p>
+      </div>
+    </div>
+
+    <div *ngIf="missionSaveState === 'saving'" class="mt-3 rounded-sm border border-cyan-300/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
+      Saving mission updates...
+    </div>
+
+    <div *ngIf="missionSavedNoticeVisible" class="mission-saved-toast mt-3 rounded-sm border border-emerald-300/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+      Mission progress saved.
+    </div>
+
+    <div *ngIf="missionError as errorMessage" class="mt-4 rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+      {{ errorMessage }}
+    </div>
+
+    <div class="mt-4 grid gap-3">
+      <label class="grid gap-1 text-sm text-white/70">
+        <span>San d'Oria</span>
+        <input
+          [ngModel]="missionDraft.sanDOriaMission"
+          (ngModelChange)="onMissionInput('sanDOriaMission', $event)"
+          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+          placeholder="Current San d'Oria mission"
+        />
+      </label>
+
+      <label class="grid gap-1 text-sm text-white/70">
+        <span>Bastok</span>
+        <input
+          [ngModel]="missionDraft.bastokMission"
+          (ngModelChange)="onMissionInput('bastokMission', $event)"
+          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+          placeholder="Current Bastok mission"
+        />
+      </label>
+
+      <label class="grid gap-1 text-sm text-white/70">
+        <span>Windurst</span>
+        <input
+          [ngModel]="missionDraft.windurstMission"
+          (ngModelChange)="onMissionInput('windurstMission', $event)"
+          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+          placeholder="Current Windurst mission"
+        />
+      </label>
+
+      <label class="grid gap-1 text-sm text-white/70">
+        <span>Rise of the Zilart</span>
+        <input
+          [ngModel]="missionDraft.riseOfTheZilartMission"
+          (ngModelChange)="onMissionInput('riseOfTheZilartMission', $event)"
+          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+          placeholder="Current Zilart mission"
+        />
+      </label>
+
+      <label class="grid gap-1 text-sm text-white/70">
+        <span>Chains of Promathia</span>
+        <input
+          [ngModel]="missionDraft.chainsOfPromathiaMission"
+          (ngModelChange)="onMissionInput('chainsOfPromathiaMission', $event)"
+          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+          placeholder="Current CoP mission"
+        />
+      </label>
+    </div>
+  </div>
+</section>
