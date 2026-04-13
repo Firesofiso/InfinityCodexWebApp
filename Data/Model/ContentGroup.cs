@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace InfinityCodexWebApp;
 
-public class ContentSource
+public class ContentGroup
 {
     [Key]
     public int Id { get; set; }
@@ -12,8 +12,6 @@ public class ContentSource
 
     [Required]
     public string Tag { get; set; } = string.Empty;
-
-    public int ContentGroupId { get; set; }
 
     public string Notes { get; set; } = string.Empty;
 

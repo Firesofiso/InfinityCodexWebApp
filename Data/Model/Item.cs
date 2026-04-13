@@ -16,5 +16,19 @@ public class Item
 
     public string? Notes { get; set; }
 
+    public string? ImagePath { get; set; }
+
+    public string? ItemType { get; set; }
+
+    public bool IsRare { get; set; }
+
+    public bool IsExclusive { get; set; }
+
+    public string? EquipSlotGroup { get; set; }
+
+    public string? RawEffectText { get; set; }
+
     public bool IsActive { get; set; }
+
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

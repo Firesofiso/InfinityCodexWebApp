@@ -74,3 +74,5 @@ coverage/
 
 # VS Code settings
 .history/
+ImportDocuments
+Migrations/sql

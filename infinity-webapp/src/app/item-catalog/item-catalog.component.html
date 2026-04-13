@@ -1,0 +1,226 @@
+<section class="space-y-5">
+  <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h2 class="text-xl font-semibold text-white">Item Catalog</h2>
+        <p class="text-sm text-white/60">Manage item metadata, job eligibility, and content source mappings.</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="rounded-sm border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+          (click)="startCreate()"
+          [disabled]="!canEdit()"
+        >
+          New Item
+        </button>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem]">
+      <label class="grid gap-1 text-sm text-white/70">
+        <span class="text-xs uppercase tracking-[0.2em] text-white/40">Search</span>
+        <input
+          [ngModel]="search()"
+          (ngModelChange)="setSearch($event)"
+          class="w-full rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+          placeholder="Filter by item, slot, notes, source, or job"
+        />
+      </label>
+
+      <label class="grid gap-1 text-sm text-white/70">
+        <span class="text-xs uppercase tracking-[0.2em] text-white/40">Status</span>
+        <select
+          [ngModel]="activeFilter()"
+          (ngModelChange)="setActiveFilter($event)"
+          class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+        >
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+          <option value="all">All</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div *ngIf="pageError() as errorMessage" class="rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+    {{ errorMessage }}
+  </div>
+
+  <div class="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+    <section class="rounded-lg border border-white/10 bg-white/5 p-4">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-lg font-semibold text-white">Catalog Items</h3>
+        <span class="text-xs uppercase tracking-[0.2em] text-white/40">{{ filteredItems().length }} items</span>
+      </div>
+
+      <div *ngIf="isLoading()" class="mt-4 rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/70">
+        Loading item catalog...
+      </div>
+
+      <div *ngIf="!isLoading() && filteredItems().length === 0" class="mt-4 rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/70">
+        No catalog items match the current filters.
+      </div>
+
+      <div *ngIf="filteredItems().length > 0" class="mt-4 max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+        <button
+          *ngFor="let item of filteredItems(); trackBy: trackByItemId"
+          type="button"
+          class="catalog-card w-full rounded-md border px-4 py-3 text-left transition"
+          [class.border-cyan-300/40]="selectedItemId() === item.id"
+          [class.bg-cyan-500/10]="selectedItemId() === item.id"
+          [class.border-white/10]="selectedItemId() !== item.id"
+          [class.bg-black/10]="selectedItemId() !== item.id"
+          (click)="selectItem(item.id)"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="truncate text-base font-medium text-white">{{ item.name }}</div>
+              <div class="mt-1 text-xs text-white/50">
+                {{ item.slot || 'No slot yet' }}
+                <span *ngIf="item.requiredLevel > 0"> · Lv {{ item.requiredLevel }}</span>
+                <span *ngIf="!item.isActive"> · Archived</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-2 text-xs">
+            <span *ngFor="let source of item.sources.slice(0, 3)" class="rounded-sm border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-amber-50">
+              {{ source.tag || source.name }}
+            </span>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-white/10 bg-white/5 p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-semibold text-white">{{ editorModel().id === null ? 'Create Item' : 'Edit Item' }}</h3>
+          <p class="text-sm text-white/60">Admin-only catalog editing surface for metadata and source mappings.</p>
+        </div>
+        <div class="rounded-sm border border-white/10 bg-black/20 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/40">
+          {{ canEdit() ? 'Admin Write Access' : 'Read Only' }}
+        </div>
+      </div>
+
+      <div *ngIf="isLoadingDetail()" class="mt-4 rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/70">
+        Loading item detail...
+      </div>
+
+      <div *ngIf="editorError() as errorMessage" class="mt-4 rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+        {{ errorMessage }}
+      </div>
+
+      <div *ngIf="editorNotice() as notice" class="mt-4 rounded-md border border-emerald-300/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+        {{ notice }}
+      </div>
+
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        <label class="grid gap-1 text-sm text-white/70 md:col-span-2">
+          <span>Name</span>
+          <input
+            [ngModel]="editorModel().name"
+            (ngModelChange)="updateName($event)"
+            class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+            [disabled]="!canEdit()"
+          />
+        </label>
+
+        <label class="grid gap-1 text-sm text-white/70">
+          <span>Required Level</span>
+          <input
+            type="number"
+            min="0"
+            max="75"
+            [ngModel]="editorModel().requiredLevel"
+            (ngModelChange)="updateRequiredLevel($event)"
+            class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+            [disabled]="!canEdit()"
+          />
+        </label>
+
+        <label class="grid gap-1 text-sm text-white/70">
+          <span>Slot / Category</span>
+          <input
+            [ngModel]="editorModel().slot"
+            (ngModelChange)="updateSlot($event)"
+            class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+            [disabled]="!canEdit()"
+            placeholder="Optional for first-pass imports"
+          />
+        </label>
+
+        <label class="grid gap-1 text-sm text-white/70 md:col-span-2">
+          <span>Allowed Jobs</span>
+          <ng-select
+            class="catalog-select"
+            [items]="jobOptions()"
+            bindLabel="label"
+            bindValue="code"
+            [multiple]="true"
+            [searchable]="true"
+            [closeOnSelect]="false"
+            [clearable]="true"
+            [ngModel]="editorModel().allowedJobs"
+            (ngModelChange)="updateAllowedJobs($event)"
+            [disabled]="!canEdit()"
+            placeholder="Select eligible jobs">
+          </ng-select>
+        </label>
+
+        <label class="grid gap-1 text-sm text-white/70 md:col-span-2">
+          <span>Content Sources</span>
+          <ng-select
+            class="catalog-select"
+            [items]="sourceOptions()"
+            bindLabel="tag"
+            bindValue="id"
+            [multiple]="true"
+            [searchable]="true"
+            [closeOnSelect]="false"
+            [clearable]="true"
+            [ngModel]="editorModel().sourceIds"
+            (ngModelChange)="updateSourceIds($event)"
+            [disabled]="!canEdit()"
+            placeholder="Select content sources">
+          </ng-select>
+        </label>
+
+        <label class="grid gap-1 text-sm text-white/70 md:col-span-2">
+          <span>Notes</span>
+          <textarea
+            rows="4"
+            [ngModel]="editorModel().notes"
+            (ngModelChange)="updateNotes($event)"
+            class="rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50"
+            [disabled]="!canEdit()"
+            placeholder="Optional operator notes"
+          ></textarea>
+        </label>
+      </div>
+
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          class="rounded-sm border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+          (click)="saveItem()"
+          [disabled]="!canEdit() || editorState() === 'saving'"
+        >
+          {{ editorState() === 'saving' ? 'Saving...' : 'Save Item' }}
+        </button>
+
+        <button
+          *ngIf="editorModel().id !== null"
+          type="button"
+          class="rounded-sm border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-medium text-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+          (click)="toggleArchived()"
+          [disabled]="!canEdit() || editorState() === 'saving'"
+        >
+          {{ editorModel().isActive ? 'Archive Item' : 'Restore Item' }}
+        </button>
+      </div>
+    </section>
+  </div>
+</section>

@@ -1,0 +1,34 @@
+:host {
+  display: block;
+}
+
+.catalog-card {
+  cursor: pointer;
+}
+
+:host ::ng-deep .catalog-select .ng-select-container {
+  background: rgb(0 0 0 / 0.2);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 0.125rem;
+  min-height: 2.5rem;
+  color: rgb(255 255 255 / 0.95);
+}
+
+:host ::ng-deep .catalog-select.ng-select-focused .ng-select-container {
+  border-color: rgb(103 232 249 / 0.5);
+  box-shadow: 0 0 0 2px rgb(103 232 249 / 0.2);
+}
+
+:host ::ng-deep .catalog-select .ng-placeholder {
+  color: rgb(255 255 255 / 0.45);
+}
+
+:host ::ng-deep .catalog-select .ng-value-label,
+:host ::ng-deep .catalog-select .ng-input > input {
+  color: rgb(255 255 255 / 0.95) !important;
+}
+
+:host ::ng-deep .catalog-select .ng-clear-wrapper,
+:host ::ng-deep .catalog-select .ng-arrow-wrapper {
+  color: rgb(255 255 255 / 0.55);
+}

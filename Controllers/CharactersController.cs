@@ -153,7 +153,16 @@ public sealed class CharactersController(
         var itemSourcesTask = (from itemSource in dbContext.ItemSources.AsNoTracking()
                                join contentSource in dbContext.ContentSources.AsNoTracking()
                                    on itemSource.ContentSourceId equals contentSource.Id
-                               select new ItemSourceTagRow(itemSource.ItemId, contentSource.Tag, contentSource.Name))
+                               join contentGroup in dbContext.ContentGroups.AsNoTracking()
+                                   on contentSource.ContentGroupId equals contentGroup.Id
+                               select new ItemSourceReferenceRow(
+                                   itemSource.ItemId,
+                                   contentSource.Id,
+                                   contentSource.Tag,
+                                   contentSource.Name,
+                                   contentGroup.Id,
+                                   contentGroup.Tag,
+                                   contentGroup.Name))
             .ToListAsync(cancellationToken);
 
         await Task.WhenAll(selectedItemIdsTask, wishlistAssignmentsTask, activeItemsTask, allowedJobsTask, itemSourcesTask);
@@ -192,14 +201,20 @@ public sealed class CharactersController(
                     .OrderBy(jobCode => jobCode)
                     .ToList());
 
-        var sourceTagsByItem = itemSourcesTask.Result
+        var sourceReferencesByItem = itemSourcesTask.Result
             .GroupBy(row => row.ItemId)
             .ToDictionary(
                 group => group.Key,
-                group => (IReadOnlyList<string>)group
-                    .Select(row => string.IsNullOrWhiteSpace(row.Tag) ? row.Name : row.Tag)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(source => source)
+                group => (IReadOnlyList<CharacterWishlistSourceResponse>)group
+                    .GroupBy(row => row.SourceId)
+                    .Select(rows => rows.First())
+                    .OrderBy(row => row.GroupTag)
+                    .ThenBy(row => string.IsNullOrWhiteSpace(row.SourceTag) ? row.SourceName : row.SourceTag)
+                    .Select(row => new CharacterWishlistSourceResponse(
+                        row.SourceId,
+                        row.SourceName,
+                        row.SourceTag,
+                        new CharacterWishlistContentGroupResponse(row.GroupId, row.GroupName, row.GroupTag)))
                     .ToList());
 
         var wishlistItems = activeItemsTask.Result
@@ -210,7 +225,7 @@ public sealed class CharactersController(
                 item.Slot,
                 item.Notes,
                 allowedJobsByItem.GetValueOrDefault(item.Id, Array.Empty<string>()),
-                sourceTagsByItem.GetValueOrDefault(item.Id, Array.Empty<string>())))
+                sourceReferencesByItem.GetValueOrDefault(item.Id, Array.Empty<CharacterWishlistSourceResponse>())))
             .ToList();
 
         var assignments = wishlistAssignmentsTask.Result
@@ -479,7 +494,14 @@ public sealed class CharactersController(
             jobs);
     }
 
-    private sealed record ItemSourceTagRow(int ItemId, string Tag, string Name);
+    private sealed record ItemSourceReferenceRow(
+        int ItemId,
+        int SourceId,
+        string SourceTag,
+        string SourceName,
+        int GroupId,
+        string GroupTag,
+        string GroupName);
 
     public sealed record CharacterWorkspaceListResponse(IReadOnlyList<CharacterWorkspaceListItemResponse> Characters);
 
@@ -535,7 +557,11 @@ public sealed class CharactersController(
         string? Slot,
         string? Notes,
         IReadOnlyList<string> AllowedJobs,
-        IReadOnlyList<string> Sources);
+        IReadOnlyList<CharacterWishlistSourceResponse> Sources);
+
+    public sealed record CharacterWishlistContentGroupResponse(int Id, string Name, string Tag);
+
+    public sealed record CharacterWishlistSourceResponse(int Id, string Name, string Tag, CharacterWishlistContentGroupResponse Group);
 
     public sealed class UpdateCharacterMissionProgressRequest
     {

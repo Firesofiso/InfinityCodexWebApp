@@ -4,9 +4,30 @@
   </div>
 
   <nav class="flex flex-col gap-3">
-    <button type="button" aria-label="Home" class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer">
+    <a
+      routerLink="/app/characters"
+      routerLinkActive="bg-cyan-400/20 text-cyan-50"
+      aria-label="Characters"
+      class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer text-white/80"
+    >
+      <span class="text-xs font-semibold"><lucide-angular [img]="Swords" class="my-icon" /></span>
+    </a>
+    <a
+      routerLink="/app/catalog"
+      routerLinkActive="bg-cyan-400/20 text-cyan-50"
+      aria-label="Item Catalog"
+      class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer text-white/80"
+    >
+      <span class="text-xs font-semibold"><lucide-angular [img]="BookOpen" class="my-icon" /></span>
+    </a>
+    <a
+      routerLink="/app/dashboard"
+      routerLinkActive="bg-cyan-400/20 text-cyan-50"
+      aria-label="Dashboard"
+      class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer text-white/80"
+    >
       <span class="text-xs font-semibold"><lucide-angular [img]="Home" class="my-icon" /></span>
-    </button>
+    </a>
     <!-- <button type="button" aria-label="Codex" class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center">
       <span class="text-xs font-semibold">CX</span>
     </button>
@@ -16,7 +37,7 @@
   </nav>
 
   <div class="mt-auto flex flex-col gap-3">
-    <button type="button" aria-label="Settings" class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer">
+    <button type="button" aria-label="Settings" class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer text-white/80">
       <span class="text-xs font-semibold"><lucide-angular [img]="Settings" class="my-icon" /></span>
     </button>
   </div>

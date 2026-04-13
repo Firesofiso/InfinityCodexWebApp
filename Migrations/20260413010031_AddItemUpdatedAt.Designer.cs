@@ -3,6 +3,7 @@ using System;
 using InfinityCodexWebApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InfinityCodexWebApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260413010031_AddItemUpdatedAt")]
+    partial class AddItemUpdatedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -169,44 +172,12 @@ namespace InfinityCodexWebApp.Migrations
                     b.ToTable("CharacterMissionProgresses");
                 });
 
-            modelBuilder.Entity("InfinityCodexWebApp.ContentGroup", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Notes")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Tag")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Tag")
-                        .IsUnique();
-
-                    b.ToTable("ContentGroups");
-                });
-
             modelBuilder.Entity("InfinityCodexWebApp.ContentSource", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("ContentGroupId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
@@ -223,8 +194,6 @@ namespace InfinityCodexWebApp.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ContentGroupId", "Tag");
 
                     b.ToTable("ContentSources");
                 });
@@ -235,32 +204,14 @@ namespace InfinityCodexWebApp.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("EquipSlotGroup")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ImagePath")
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsExclusive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsRare")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ItemType")
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RawEffectText")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("RequiredLevel")
@@ -277,22 +228,6 @@ namespace InfinityCodexWebApp.Migrations
                     b.ToTable("Items");
                 });
 
-            modelBuilder.Entity("InfinityCodexWebApp.ItemAccessoryStats", b =>
-                {
-                    b.Property<int>("ItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("Charges")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("RecastSeconds")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("ItemId");
-
-                    b.ToTable("ItemAccessoryStats");
-                });
-
             modelBuilder.Entity("InfinityCodexWebApp.ItemAllowedJob", b =>
                 {
                     b.Property<int>("ItemId")
@@ -306,22 +241,6 @@ namespace InfinityCodexWebApp.Migrations
                     b.ToTable("ItemAllowedJobs");
                 });
 
-            modelBuilder.Entity("InfinityCodexWebApp.ItemArmorStats", b =>
-                {
-                    b.Property<int>("ItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("Defense")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("MagicDefense")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("ItemId");
-
-                    b.ToTable("ItemArmorStats");
-                });
-
             modelBuilder.Entity("InfinityCodexWebApp.ItemSource", b =>
                 {
                     b.Property<int>("ItemId")
@@ -333,56 +252,6 @@ namespace InfinityCodexWebApp.Migrations
                     b.HasKey("ItemId", "ContentSourceId");
 
                     b.ToTable("ItemSources");
-                });
-
-            modelBuilder.Entity("InfinityCodexWebApp.ItemStatModifier", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("StatKey")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<decimal>("StatValue")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Unit")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ItemId", "SortOrder");
-
-                    b.HasIndex("ItemId", "StatKey");
-
-                    b.ToTable("ItemStatModifiers");
-                });
-
-            modelBuilder.Entity("InfinityCodexWebApp.ItemWeaponStats", b =>
-                {
-                    b.Property<int>("ItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("Damage")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("Delay")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<decimal?>("Dps")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("ItemId");
-
-                    b.ToTable("ItemWeaponStats");
                 });
 
             modelBuilder.Entity("InfinityCodexWebApp.User", b =>
@@ -446,51 +315,6 @@ namespace InfinityCodexWebApp.Migrations
                         .IsUnique();
 
                     b.ToTable("UserPreferredJobs");
-                });
-
-            modelBuilder.Entity("InfinityCodexWebApp.ContentSource", b =>
-                {
-                    b.HasOne("InfinityCodexWebApp.ContentGroup", null)
-                        .WithMany()
-                        .HasForeignKey("ContentGroupId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("InfinityCodexWebApp.ItemAccessoryStats", b =>
-                {
-                    b.HasOne("InfinityCodexWebApp.Item", null)
-                        .WithMany()
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("InfinityCodexWebApp.ItemArmorStats", b =>
-                {
-                    b.HasOne("InfinityCodexWebApp.Item", null)
-                        .WithMany()
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("InfinityCodexWebApp.ItemStatModifier", b =>
-                {
-                    b.HasOne("InfinityCodexWebApp.Item", null)
-                        .WithMany()
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("InfinityCodexWebApp.ItemWeaponStats", b =>
-                {
-                    b.HasOne("InfinityCodexWebApp.Item", null)
-                        .WithMany()
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }
