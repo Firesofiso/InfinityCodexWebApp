@@ -7,15 +7,45 @@ export interface CatalogJobOption {
   label: string;
 }
 
-export interface ContentSourceReference {
+export interface ContentGroupReference {
   id: number;
   name: string;
   tag: string;
 }
 
+export interface ContentSourceReference {
+  id: number;
+  name: string;
+  tag: string;
+  group: ContentGroupReference;
+}
+
 export interface ContentSourceOption extends ContentSourceReference {
   isActive: boolean;
   notes: string;
+}
+
+export interface ItemArmorStats {
+  defense?: number | null;
+  magicDefense?: number | null;
+}
+
+export interface ItemWeaponStats {
+  damage?: number | null;
+  delay?: number | null;
+  dps?: number | null;
+}
+
+export interface ItemAccessoryStats {
+  charges?: number | null;
+  recastSeconds?: number | null;
+}
+
+export interface ItemStatModifier {
+  statKey: string;
+  statValue: number;
+  unit?: string | null;
+  sortOrder: number;
 }
 
 export interface CatalogItemSummary {
@@ -24,8 +54,18 @@ export interface CatalogItemSummary {
   requiredLevel: number;
   slot?: string | null;
   notes?: string | null;
+  imagePath?: string | null;
+  itemType?: string | null;
+  isRare: boolean;
+  isExclusive: boolean;
+  equipSlotGroup?: string | null;
+  rawEffectText?: string | null;
   isActive: boolean;
   updatedAt: string;
+  armorStats?: ItemArmorStats | null;
+  weaponStats?: ItemWeaponStats | null;
+  accessoryStats?: ItemAccessoryStats | null;
+  modifiers: ItemStatModifier[];
   allowedJobs: string[];
   sources: ContentSourceReference[];
 }
@@ -46,6 +86,16 @@ export interface UpsertCatalogItemRequest {
   requiredLevel: number;
   slot?: string | null;
   notes?: string | null;
+  imagePath?: string | null;
+  itemType?: string | null;
+  isRare: boolean;
+  isExclusive: boolean;
+  equipSlotGroup?: string | null;
+  rawEffectText?: string | null;
+  armorStats?: ItemArmorStats | null;
+  weaponStats?: ItemWeaponStats | null;
+  accessoryStats?: ItemAccessoryStats | null;
+  modifiers: ItemStatModifier[];
   allowedJobs: string[];
   sourceIds: number[];
 }

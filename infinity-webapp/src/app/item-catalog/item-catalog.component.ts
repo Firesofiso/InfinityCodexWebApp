@@ -5,9 +5,14 @@ import { FormsModule } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { AuthService } from '../../services/auth.service';
 import {
+  ContentSourceReference,
   CatalogItemDetail,
   CatalogItemSummary,
   CatalogJobOption,
+  ItemAccessoryStats,
+  ItemArmorStats,
+  ItemStatModifier,
+  ItemWeaponStats,
   ContentSourceOption,
   ItemCatalogService,
   UpsertCatalogItemRequest
@@ -21,9 +26,23 @@ interface CatalogItemEditorModel {
   requiredLevel: number;
   slot: string | null;
   notes: string | null;
+  imagePath: string | null;
+  itemType: string | null;
+  isRare: boolean;
+  isExclusive: boolean;
+  equipSlotGroup: string | null;
+  rawEffectText: string | null;
+  armorStats: ItemArmorStats | null;
+  weaponStats: ItemWeaponStats | null;
+  accessoryStats: ItemAccessoryStats | null;
+  modifiers: ItemStatModifier[];
   allowedJobs: string[];
   sourceIds: number[];
   isActive: boolean;
+}
+
+interface CatalogSourceOptionView extends ContentSourceOption {
+  displayLabel: string;
 }
 
 @Component({
@@ -36,6 +55,7 @@ interface CatalogItemEditorModel {
 export class ItemCatalogComponent implements OnInit {
   private readonly itemCatalogService = inject(ItemCatalogService);
   private readonly authService = inject(AuthService);
+  protected readonly itemTypeOptions = ['armor', 'weapon', 'accessory', 'consumable', 'other'];
 
   protected readonly isLoading = signal(true);
   protected readonly isLoadingDetail = signal(false);
@@ -51,6 +71,11 @@ export class ItemCatalogComponent implements OnInit {
   protected readonly sourceOptions = signal<ContentSourceOption[]>([]);
   protected readonly jobOptions = signal<CatalogJobOption[]>([]);
   protected readonly editorModel = signal<CatalogItemEditorModel>(this.createEmptyEditorModel());
+  protected readonly sourceSelectOptions = computed<CatalogSourceOptionView[]>(() =>
+    this.sourceOptions().map((source) => ({
+      ...source,
+      displayLabel: `${source.group.tag} / ${source.tag || source.name}`
+    })));
 
   protected readonly session = this.authService.session;
   protected readonly canEdit = computed(() => this.session()?.role === 'Admin');
@@ -63,8 +88,19 @@ export class ItemCatalogComponent implements OnInit {
     }
 
     return items.filter((item) => {
-      const sourceText = item.sources.map((source) => source.tag || source.name).join(' ');
-      const haystacks = [item.name, item.slot ?? '', item.notes ?? '', item.allowedJobs.join(' '), sourceText];
+      const sourceText = item.sources.map((source) => this.getSourceBadgeLabel(source)).join(' ');
+      const modifierText = item.modifiers.map((modifier) => `${modifier.statKey} ${modifier.statValue} ${modifier.unit ?? ''}`).join(' ');
+      const haystacks = [
+        item.name,
+        item.slot ?? '',
+        item.notes ?? '',
+        item.itemType ?? '',
+        item.equipSlotGroup ?? '',
+        item.rawEffectText ?? '',
+        item.allowedJobs.join(' '),
+        sourceText,
+        modifierText
+      ];
       return haystacks.some((value) => value.toLowerCase().includes(query));
     });
   });
@@ -187,6 +223,127 @@ export class ItemCatalogComponent implements OnInit {
     this.editorModel.update((model) => ({ ...model, notes: value }));
   }
 
+  protected updateImagePath(value: string | null): void {
+    this.editorModel.update((model) => ({ ...model, imagePath: value }));
+  }
+
+  protected updateItemType(value: string | null): void {
+    this.editorModel.update((model) => ({ ...model, itemType: value }));
+  }
+
+  protected updateEquipSlotGroup(value: string | null): void {
+    this.editorModel.update((model) => ({ ...model, equipSlotGroup: value }));
+  }
+
+  protected updateRawEffectText(value: string | null): void {
+    this.editorModel.update((model) => ({ ...model, rawEffectText: value }));
+  }
+
+  protected updateIsRare(value: boolean): void {
+    this.editorModel.update((model) => ({ ...model, isRare: value }));
+  }
+
+  protected updateIsExclusive(value: boolean): void {
+    this.editorModel.update((model) => ({ ...model, isExclusive: value }));
+  }
+
+  protected updateArmorStat(field: keyof ItemArmorStats, value: number | null): void {
+    this.editorModel.update((model) => ({
+      ...model,
+      armorStats: {
+        ...(model.armorStats ?? {}),
+        [field]: value
+      }
+    }));
+  }
+
+  protected updateWeaponStat(field: keyof ItemWeaponStats, value: number | null): void {
+    this.editorModel.update((model) => ({
+      ...model,
+      weaponStats: {
+        ...(model.weaponStats ?? {}),
+        [field]: value
+      }
+    }));
+  }
+
+  protected updateAccessoryStat(field: keyof ItemAccessoryStats, value: number | null): void {
+    this.editorModel.update((model) => ({
+      ...model,
+      accessoryStats: {
+        ...(model.accessoryStats ?? {}),
+        [field]: value
+      }
+    }));
+  }
+
+  protected addModifier(): void {
+    this.editorModel.update((model) => ({
+      ...model,
+      modifiers: [
+        ...model.modifiers,
+        {
+          statKey: '',
+          statValue: 0,
+          unit: null,
+          sortOrder: model.modifiers.length
+        }
+      ]
+    }));
+  }
+
+  protected updateModifier(index: number, patch: Partial<ItemStatModifier>): void {
+    this.editorModel.update((model) => ({
+      ...model,
+      modifiers: model.modifiers.map((modifier, modifierIndex) => modifierIndex === index
+        ? { ...modifier, ...patch }
+        : modifier)
+    }));
+  }
+
+  protected removeModifier(index: number): void {
+    this.editorModel.update((model) => ({
+      ...model,
+      modifiers: model.modifiers
+        .filter((_, modifierIndex) => modifierIndex !== index)
+        .map((modifier, modifierIndex) => ({ ...modifier, sortOrder: modifierIndex }))
+    }));
+  }
+
+  protected trackByModifierIndex(index: number): number {
+    return index;
+  }
+
+  protected getSourceBadgeLabel(source: ContentSourceReference): string {
+    return `${source.group.tag} / ${source.tag || source.name}`;
+  }
+
+  protected getItemMetaLine(item: CatalogItemSummary): string {
+    const parts = [item.slot || 'No slot yet'];
+
+    if (item.requiredLevel > 0) {
+      parts.push(`Lv ${item.requiredLevel}`);
+    }
+
+    if (item.itemType) {
+      parts.push(item.itemType);
+    }
+
+    if (item.isRare) {
+      parts.push('Rare');
+    }
+
+    if (item.isExclusive) {
+      parts.push('Ex');
+    }
+
+    if (!item.isActive) {
+      parts.push('Archived');
+    }
+
+    return parts.join(' · ');
+  }
+
   protected setActiveFilter(value: 'active' | 'archived' | 'all'): void {
     this.activeFilter.set(value);
     this.loadItems(true);
@@ -246,6 +403,16 @@ export class ItemCatalogComponent implements OnInit {
       requiredLevel: 0,
       slot: null,
       notes: null,
+      imagePath: null,
+      itemType: 'armor',
+      isRare: false,
+      isExclusive: false,
+      equipSlotGroup: null,
+      rawEffectText: null,
+      armorStats: null,
+      weaponStats: null,
+      accessoryStats: null,
+      modifiers: [],
       allowedJobs: [],
       sourceIds: [],
       isActive: true
@@ -259,6 +426,16 @@ export class ItemCatalogComponent implements OnInit {
       requiredLevel: item.requiredLevel,
       slot: item.slot ?? null,
       notes: item.notes ?? null,
+      imagePath: item.imagePath ?? null,
+      itemType: item.itemType ?? null,
+      isRare: item.isRare,
+      isExclusive: item.isExclusive,
+      equipSlotGroup: item.equipSlotGroup ?? null,
+      rawEffectText: item.rawEffectText ?? null,
+      armorStats: item.armorStats ?? null,
+      weaponStats: item.weaponStats ?? null,
+      accessoryStats: item.accessoryStats ?? null,
+      modifiers: item.modifiers.map((modifier) => ({ ...modifier })),
       allowedJobs: [...item.allowedJobs],
       sourceIds: item.sources.map((source) => source.id),
       isActive: item.isActive
@@ -271,9 +448,81 @@ export class ItemCatalogComponent implements OnInit {
       requiredLevel: Number(model.requiredLevel) || 0,
       slot: model.slot?.trim() ? model.slot.trim() : null,
       notes: model.notes?.trim() ? model.notes.trim() : null,
+      imagePath: model.imagePath?.trim() ? model.imagePath.trim() : null,
+      itemType: model.itemType?.trim() ? model.itemType.trim().toLowerCase() : null,
+      isRare: model.isRare,
+      isExclusive: model.isExclusive,
+      equipSlotGroup: model.equipSlotGroup?.trim() ? model.equipSlotGroup.trim() : null,
+      rawEffectText: model.rawEffectText?.trim() ? model.rawEffectText.trim() : null,
+      armorStats: this.normalizeArmorStats(model.armorStats),
+      weaponStats: this.normalizeWeaponStats(model.weaponStats),
+      accessoryStats: this.normalizeAccessoryStats(model.accessoryStats),
+      modifiers: model.modifiers
+        .map((modifier, index) => ({
+          statKey: modifier.statKey.trim(),
+          statValue: Number(modifier.statValue),
+          unit: modifier.unit?.trim() ? modifier.unit.trim() : null,
+          sortOrder: index
+        }))
+        .filter((modifier) => modifier.statKey.length > 0 && !Number.isNaN(modifier.statValue)),
       allowedJobs: [...model.allowedJobs],
       sourceIds: [...model.sourceIds]
     };
+  }
+
+  private normalizeArmorStats(stats: ItemArmorStats | null): ItemArmorStats | null {
+    if (!stats) {
+      return null;
+    }
+
+    const defense = this.normalizeNumberValue(stats.defense);
+    const magicDefense = this.normalizeNumberValue(stats.magicDefense);
+
+    if (defense === null && magicDefense === null) {
+      return null;
+    }
+
+    return { defense, magicDefense };
+  }
+
+  private normalizeWeaponStats(stats: ItemWeaponStats | null): ItemWeaponStats | null {
+    if (!stats) {
+      return null;
+    }
+
+    const damage = this.normalizeNumberValue(stats.damage);
+    const delay = this.normalizeNumberValue(stats.delay);
+    const dps = this.normalizeNumberValue(stats.dps);
+
+    if (damage === null && delay === null && dps === null) {
+      return null;
+    }
+
+    return { damage, delay, dps };
+  }
+
+  private normalizeAccessoryStats(stats: ItemAccessoryStats | null): ItemAccessoryStats | null {
+    if (!stats) {
+      return null;
+    }
+
+    const charges = this.normalizeNumberValue(stats.charges);
+    const recastSeconds = this.normalizeNumberValue(stats.recastSeconds);
+
+    if (charges === null && recastSeconds === null) {
+      return null;
+    }
+
+    return { charges, recastSeconds };
+  }
+
+  private normalizeNumberValue(value: number | null | undefined): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const numericValue = Number(value);
+    return Number.isNaN(numericValue) ? null : numericValue;
   }
 
   private getErrorMessage(error: unknown, fallback: string): string {

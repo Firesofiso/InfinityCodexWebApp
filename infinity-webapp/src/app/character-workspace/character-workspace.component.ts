@@ -5,6 +5,7 @@ import {
   CharacterMissionProgress,
   CharacterWishlistAssignment,
   CharacterWishlistItem,
+  CharacterWishlistSource,
   CharacterWorkspaceDetailResponse,
   CharacterWorkspaceListItem,
   CharacterWorkspaceService
@@ -31,7 +32,10 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       slot: 'Main Hand',
       notes: 'Preview seed item for styling checks.',
       allowedJobs: ['WAR', 'PLD', 'DRK'],
-      sources: ['Dynamis', 'Relic Upgrade']
+      sources: [
+        this.createPreviewSource(1, 'Dynamis - Xarcabard', 'dynamis-xarcabard', 1, 'Dynamis', 'dynamis'),
+        this.createPreviewSource(2, 'Relic Upgrade', 'relic-upgrade', 2, 'Legacy', 'legacy')
+      ]
     },
     {
       itemId: 900002,
@@ -40,7 +44,10 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       slot: 'Head',
       notes: 'Magic accuracy and enfeebling bonus.',
       allowedJobs: ['WHM', 'BLM', 'RDM', 'SMN'],
-      sources: ['Sky', 'Crafted']
+      sources: [
+        this.createPreviewSource(3, 'Sky', 'sky', 2, 'Legacy', 'legacy'),
+        this.createPreviewSource(4, 'Crafted', 'crafted', 2, 'Legacy', 'legacy')
+      ]
     },
     {
       itemId: 900003,
@@ -49,7 +56,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       slot: 'Back',
       notes: 'Ranged attack focused cape for marksmanship builds.',
       allowedJobs: ['RNG', 'THF', 'NIN'],
-      sources: ['HNMs']
+      sources: [this.createPreviewSource(5, 'HNMs', 'hnms', 2, 'Legacy', 'legacy')]
     },
     {
       itemId: 900004,
@@ -58,7 +65,10 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       slot: 'Ring',
       notes: null,
       allowedJobs: [],
-      sources: ['Kirin', 'Event Token Exchange']
+      sources: [
+        this.createPreviewSource(6, 'Kirin', 'kirin', 2, 'Legacy', 'legacy'),
+        this.createPreviewSource(7, 'Event Token Exchange', 'event-token-exchange', 2, 'Legacy', 'legacy')
+      ]
     },
     {
       itemId: 900005,
@@ -67,7 +77,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       slot: 'Waist',
       notes: 'Great for support and ranged hybrid sets.',
       allowedJobs: ['BRD', 'RNG', 'NIN'],
-      sources: ['Limbus']
+      sources: [this.createPreviewSource(8, 'Limbus', 'limbus', 2, 'Legacy', 'legacy')]
     },
     {
       itemId: 900006,
@@ -129,7 +139,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
         item.slot ?? '',
         item.notes ?? '',
         item.allowedJobs.join(' '),
-        item.sources.join(' ')
+        item.sources.map((source) => this.getWishlistSourceLabel(source)).join(' ')
       ];
 
       return haystacks.some((value) => value.toLowerCase().includes(query));
@@ -258,6 +268,18 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
   protected getCharacterNameById(characterId: number): string {
     return this.characters().find((character) => character.characterId === characterId)?.name ?? `Character ${characterId}`;
+  }
+
+  protected getWishlistSourceLabel(source: CharacterWishlistSource): string {
+    return `${source.group.tag} / ${source.tag || source.name}`;
+  }
+
+  protected getWishlistSourceSummary(item: CharacterWishlistItem): string {
+    if (item.sources.length === 0) {
+      return 'No source tags';
+    }
+
+    return item.sources.map((source) => this.getWishlistSourceLabel(source)).join(' · ');
   }
 
   protected getNationLabel(nation?: number | null): string {
@@ -540,6 +562,26 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       chainsOfPromathiaMission: null,
       epilogueMission: null,
       updatedAt: null
+    };
+  }
+
+  private createPreviewSource(
+    id: number,
+    name: string,
+    tag: string,
+    groupId: number,
+    groupName: string,
+    groupTag: string
+  ): CharacterWishlistSource {
+    return {
+      id,
+      name,
+      tag,
+      group: {
+        id: groupId,
+        name: groupName,
+        tag: groupTag
+      }
     };
   }
 

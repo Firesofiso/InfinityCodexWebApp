@@ -52,7 +52,20 @@ export interface CharacterWishlistItem {
   slot?: string | null;
   notes?: string | null;
   allowedJobs: string[];
-  sources: string[];
+  sources: CharacterWishlistSource[];
+}
+
+export interface CharacterWishlistContentGroup {
+  id: number;
+  name: string;
+  tag: string;
+}
+
+export interface CharacterWishlistSource {
+  id: number;
+  name: string;
+  tag: string;
+  group: CharacterWishlistContentGroup;
 }
 
 export interface CharacterWishlistAssignment {
