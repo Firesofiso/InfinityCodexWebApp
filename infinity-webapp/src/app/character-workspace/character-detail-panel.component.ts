@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleCha
 import { FormsModule } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import {
+  CharacterDynamisClears,
   CharacterMissionProgress,
   CharacterWorkspaceDetailResponse,
   CharacterWorkspaceListItem,
@@ -34,7 +35,7 @@ export class CharacterDetailPanelComponent implements OnChanges, OnDestroy {
   @Input() public currentDetail: CharacterWorkspaceDetailResponse | null = null;
   @Input() public isLoadingDetail = false;
   @Input() public missionDraft: CharacterMissionProgress = {
-    sanDOriaMission: null,
+    sandOriaMission: null,
     bastokMission: null,
     windurstMission: null,
     riseOfTheZilartMission: null,
@@ -45,8 +46,33 @@ export class CharacterDetailPanelComponent implements OnChanges, OnDestroy {
   @Input() public missionSaveState: MissionPanelSaveState = 'idle';
   @Input() public missionSavedNoticeVisible = false;
   @Input() public missionError: string | null = null;
+  @Input() public dynamisDraft: CharacterDynamisClears = {
+    dynamisSandOria: false, dynamisBastok: false, dynamisWindurst: false, dynamisJeuno: false,
+    dynamisBeaucedine: false, dynamisXarcabard: false, dynamisValkurm: false, dynamisBuburimu: false,
+    dynamisQufim: false, dynamisTavnazia: false
+  };
+  @Input() public dynamisSaveState: MissionPanelSaveState = 'idle';
+  @Input() public dynamisError: string | null = null;
 
-  public readonly sanDOriaMissionOptions: MissionOption[] = SAN_DORIA_MISSIONS;
+  public readonly dynamisCityZones: { field: keyof CharacterDynamisClears; label: string }[] = [
+    { field: 'dynamisSandOria', label: "San d'Oria" },
+    { field: 'dynamisBastok', label: 'Bastok' },
+    { field: 'dynamisWindurst', label: 'Windurst' },
+    { field: 'dynamisJeuno', label: 'Jeuno' }
+  ];
+
+  public readonly dynamisIcelandZones: { field: keyof CharacterDynamisClears; label: string }[] = [
+    { field: 'dynamisBeaucedine', label: 'Beaucedine' },
+    { field: 'dynamisXarcabard', label: 'Xarcabard' }
+  ];
+
+  public readonly dynamisDreamlandZones: { field: keyof CharacterDynamisClears; label: string }[] = [
+    { field: 'dynamisValkurm', label: 'Valkurm' },
+    { field: 'dynamisBuburimu', label: 'Buburimu' },
+    { field: 'dynamisQufim', label: 'Qufim' }
+  ];
+
+  public readonly sandOriaMissionOptions: MissionOption[] = SAN_DORIA_MISSIONS;
   public readonly bastokMissionOptions: MissionOption[] = BASTOK_MISSIONS;
   public readonly windurstMissionOptions: MissionOption[] = WINDURST_MISSIONS;
   public readonly riseOfTheZilartMissionOptions: MissionOption[] = RISE_OF_THE_ZILART_MISSIONS;
@@ -61,6 +87,7 @@ export class CharacterDetailPanelComponent implements OnChanges, OnDestroy {
   @Output() public readonly characterSelected = new EventEmitter<number>();
   @Output() public readonly mainCharacterSelected = new EventEmitter<number>();
   @Output() public readonly missionChanged = new EventEmitter<{ field: keyof CharacterMissionProgress; value: string | null }>();
+  @Output() public readonly dynamisChanged = new EventEmitter<{ field: keyof CharacterDynamisClears; value: boolean }>();
 
   private readonly jobDisplayOrder = [
     'WAR', 'MNK', 'WHM', 'BLM', 'RDM', 'THF', 'PLD', 'DRK',
@@ -152,6 +179,23 @@ export class CharacterDetailPanelComponent implements OnChanges, OnDestroy {
 
   public onMissionInput(field: keyof CharacterMissionProgress, value: string | null): void {
     this.missionChanged.emit({ field, value });
+  }
+
+  public onDynamisToggle(field: keyof CharacterDynamisClears, value: boolean): void {
+    this.dynamisChanged.emit({ field, value });
+  }
+
+  public get areIcelandsAccessible(): boolean {
+    return this.dynamisDraft.dynamisSandOria
+      && this.dynamisDraft.dynamisBastok
+      && this.dynamisDraft.dynamisWindurst
+      && this.dynamisDraft.dynamisJeuno;
+  }
+
+  public get isTavnaziaAccessible(): boolean {
+    return this.dynamisDraft.dynamisValkurm
+      && this.dynamisDraft.dynamisBuburimu
+      && this.dynamisDraft.dynamisQufim;
   }
 
   public isMainCharacter(characterId: number): boolean {

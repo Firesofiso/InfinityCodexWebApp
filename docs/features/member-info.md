@@ -5,6 +5,38 @@
 **Status**: Draft
 **Input**: User description: "member info, lets create a feature document for member information."
 
+## Progress
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Consolidate Character data model (jobs, crafts, missions, Dynamis into one table) | ✅ Done |
+| 2 | Mission progress CRUD API | ✅ Done |
+| 3 | Character workspace UI with mission editing | ✅ Done |
+| 4 | Discord OAuth registration flow | ✅ Done |
+| 5 | HorizonXI character search endpoint | ✅ Done |
+| 6 | HorizonXI job level live fetch and portrait cache | ✅ Done |
+| 7 | Gear wishlist model and CRUD endpoints | ✅ Done |
+| 8 | Gear wishlist UI with multi-character assignment | ✅ Done |
+| 9 | Item catalog with content sources | ✅ Done |
+| 10 | Member roster page | ⬜ Pending |
+| 11 | Roster search and filter | ⬜ Pending |
+| 12 | Content access derivation (Sky / Sea / Limbus / Dynamis) | ⬜ Pending |
+| 13 | Dynamis zone clear recording API (addon endpoint) | ⬜ Pending |
+| 14 | Retire character and link replacement | ⬜ Pending |
+| 15 | Officer write access to any member's data | ⬜ Pending |
+| 16 | Officer manual member registration | ⬜ Pending |
+| 17 | Mark gear need as obtained | ⬜ Pending |
+| 18 | Gear needs grouped and filtered by content type | ⬜ Pending |
+| 19 | Enforce 1-per-player item restriction | ⬜ Pending |
+| 20 | Crafting levels display in UI | ⬜ Pending |
+| 21 | HorizonXI staleness indicator | ⬜ Pending |
+| 22 | DKP total on workspace and roster | ⬜ Pending |
+| 23 | Member deactivation | ⬜ Pending |
+| 24 | Enforce global unique character name constraint | ⬜ Pending |
+| 25 | Remove orphan character-profile-detail component | ⬜ Pending |
+
+---
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - View Member Profile (Priority: P1)

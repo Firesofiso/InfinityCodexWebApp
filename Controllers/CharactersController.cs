@@ -122,9 +122,6 @@ public sealed class CharactersController(
             return NotFound(new { message = "Character was not found." });
         }
 
-        var missionProgress = await dbContext.CharacterMissionProgresses
-            .FirstOrDefaultAsync(entity => entity.CharacterId == character.Id, cancellationToken);
-
         var ownedCharacterIds = await dbContext.Characters
             .Where(entity => entity.OwnerUserId == user.Id && entity.IsActive)
             .Select(entity => entity.Id)
@@ -244,13 +241,24 @@ public sealed class CharactersController(
             horizonResponse,
             horizonError,
             new CharacterMissionProgressResponse(
-                missionProgress?.SanDOriaMission,
-                missionProgress?.BastokMission,
-                missionProgress?.WindurstMission,
-                missionProgress?.RiseOfTheZilartMission,
-                missionProgress?.ChainsOfPromathiaMission,
-                missionProgress?.EpilogueMission,
-                missionProgress?.UpdatedAt),
+                character.SandOriaMission,
+                character.BastokMission,
+                character.WindurstMission,
+                character.RiseOfTheZilartMission,
+                character.ChainsOfPromathiaMission,
+                character.EpilogueMission,
+                character.UpdatedAt),
+            new CharacterDynamisClearsResponse(
+                character.DynamisSandOria,
+                character.DynamisBastok,
+                character.DynamisWindurst,
+                character.DynamisJeuno,
+                character.DynamisBeaucedine,
+                character.DynamisXarcabard,
+                character.DynamisValkurm,
+                character.DynamisBuburimu,
+                character.DynamisQufim,
+                character.DynamisTavnazia),
             new CharacterWishlistResponse(selectedItemIdsTask.Result, wishlistItems, assignments)));
     }
 
@@ -281,14 +289,14 @@ public sealed class CharactersController(
             return NotFound(new { message = "Character was not found." });
         }
 
-        var sanDOriaMission = NormalizeMissionValue(request.SanDOriaMission);
+        var sandOriaMission = NormalizeMissionValue(request.SandOriaMission);
         var bastokMission = NormalizeMissionValue(request.BastokMission);
         var windurstMission = NormalizeMissionValue(request.WindurstMission);
         var riseOfTheZilartMission = NormalizeMissionValue(request.RiseOfTheZilartMission);
         var chainsOfPromathiaMission = NormalizeMissionValue(request.ChainsOfPromathiaMission);
         var epilogueMission = NormalizeMissionValue(request.EpilogueMission);
 
-        if (!ValidateMissionLength(sanDOriaMission)
+        if (!ValidateMissionLength(sandOriaMission)
             || !ValidateMissionLength(bastokMission)
             || !ValidateMissionLength(windurstMission)
             || !ValidateMissionLength(riseOfTheZilartMission)
@@ -298,37 +306,77 @@ public sealed class CharactersController(
             return BadRequest(new { message = $"Mission values must be {MissionTextMaxLength} characters or fewer." });
         }
 
-        var missionProgress = await dbContext.CharacterMissionProgresses
-            .FirstOrDefaultAsync(entity => entity.CharacterId == character.Id, cancellationToken);
-
-        if (missionProgress is null)
-        {
-            missionProgress = new CharacterMissionProgress
-            {
-                CharacterId = character.Id
-            };
-
-            dbContext.CharacterMissionProgresses.Add(missionProgress);
-        }
-
-        missionProgress.SanDOriaMission = sanDOriaMission;
-        missionProgress.BastokMission = bastokMission;
-        missionProgress.WindurstMission = windurstMission;
-        missionProgress.RiseOfTheZilartMission = riseOfTheZilartMission;
-        missionProgress.ChainsOfPromathiaMission = chainsOfPromathiaMission;
-        missionProgress.EpilogueMission = epilogueMission;
-        missionProgress.UpdatedAt = DateTime.UtcNow;
+        character.SandOriaMission = sandOriaMission;
+        character.BastokMission = bastokMission;
+        character.WindurstMission = windurstMission;
+        character.RiseOfTheZilartMission = riseOfTheZilartMission;
+        character.ChainsOfPromathiaMission = chainsOfPromathiaMission;
+        character.EpilogueMission = epilogueMission;
+        character.UpdatedAt = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new CharacterMissionProgressResponse(
-            missionProgress.SanDOriaMission,
-            missionProgress.BastokMission,
-            missionProgress.WindurstMission,
-            missionProgress.RiseOfTheZilartMission,
-            missionProgress.ChainsOfPromathiaMission,
-            missionProgress.EpilogueMission,
-            missionProgress.UpdatedAt));
+            character.SandOriaMission,
+            character.BastokMission,
+            character.WindurstMission,
+            character.RiseOfTheZilartMission,
+            character.ChainsOfPromathiaMission,
+            character.EpilogueMission,
+            character.UpdatedAt));
+    }
+
+    [HttpPut("workspace/{characterId:int}/dynamis")]
+    public async Task<IActionResult> UpdateDynamisClears(int characterId, [FromBody] UpdateDynamisClearsRequest? request, CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest(new { message = "Dynamis clears payload is required." });
+        }
+
+        var user = await GetCurrentUserAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized(new { message = "User session could not be resolved." });
+        }
+
+        if (!user.IsActive)
+        {
+            return Forbid();
+        }
+
+        var character = await dbContext.Characters
+            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.OwnerUserId == user.Id && entity.IsActive, cancellationToken);
+
+        if (character is null)
+        {
+            return NotFound(new { message = "Character was not found." });
+        }
+
+        character.DynamisSandOria = request.DynamisSandOria;
+        character.DynamisBastok = request.DynamisBastok;
+        character.DynamisWindurst = request.DynamisWindurst;
+        character.DynamisJeuno = request.DynamisJeuno;
+        character.DynamisBeaucedine = request.DynamisBeaucedine;
+        character.DynamisXarcabard = request.DynamisXarcabard;
+        character.DynamisValkurm = request.DynamisValkurm;
+        character.DynamisBuburimu = request.DynamisBuburimu;
+        character.DynamisQufim = request.DynamisQufim;
+        character.DynamisTavnazia = request.DynamisTavnazia;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new CharacterDynamisClearsResponse(
+            character.DynamisSandOria,
+            character.DynamisBastok,
+            character.DynamisWindurst,
+            character.DynamisJeuno,
+            character.DynamisBeaucedine,
+            character.DynamisXarcabard,
+            character.DynamisValkurm,
+            character.DynamisBuburimu,
+            character.DynamisQufim,
+            character.DynamisTavnazia));
     }
 
     [HttpPut("workspace/{characterId:int}/wishlist")]
@@ -449,6 +497,42 @@ public sealed class CharactersController(
         return Ok(new CharacterWishlistSelectionResponse(selectedItemIds, responseAssignments));
     }
 
+    [HttpPost("workspace/{characterId:int}/wishlist/{itemId:int}/obtained")]
+    public async Task<IActionResult> MarkWishlistItemObtained(int characterId, int itemId, CancellationToken cancellationToken)
+    {
+        var user = await GetCurrentUserAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized(new { message = "User session could not be resolved." });
+        }
+
+        if (!user.IsActive)
+        {
+            return Forbid();
+        }
+
+        var character = await dbContext.Characters
+            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.OwnerUserId == user.Id && entity.IsActive, cancellationToken);
+
+        if (character is null)
+        {
+            return NotFound(new { message = "Character was not found." });
+        }
+
+        var need = await dbContext.CharacterItemNeeds
+            .FirstOrDefaultAsync(entity => entity.CharacterId == characterId && entity.ItemId == itemId && entity.State == WishlistStateNeeded, cancellationToken);
+
+        if (need is null)
+        {
+            return NotFound(new { message = "Gear need was not found." });
+        }
+
+        need.State = "obtained";
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
     private async Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken)
     {
         var discordId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -512,7 +596,20 @@ public sealed class CharactersController(
         HorizonCharacterDetailResponse? Horizon,
         string? HorizonError,
         CharacterMissionProgressResponse Missions,
+        CharacterDynamisClearsResponse Dynamis,
         CharacterWishlistResponse Wishlist);
+
+    public sealed record CharacterDynamisClearsResponse(
+        bool DynamisSandOria,
+        bool DynamisBastok,
+        bool DynamisWindurst,
+        bool DynamisJeuno,
+        bool DynamisBeaucedine,
+        bool DynamisXarcabard,
+        bool DynamisValkurm,
+        bool DynamisBuburimu,
+        bool DynamisQufim,
+        bool DynamisTavnazia);
 
     public sealed record HorizonCharacterDetailResponse(
         string Name,
@@ -531,7 +628,7 @@ public sealed class CharactersController(
     public sealed record HorizonJobLevelResponse(string JobCode, int Level);
 
     public sealed record CharacterMissionProgressResponse(
-        string? SanDOriaMission,
+        string? SandOriaMission,
         string? BastokMission,
         string? WindurstMission,
         string? RiseOfTheZilartMission,
@@ -565,7 +662,7 @@ public sealed class CharactersController(
 
     public sealed class UpdateCharacterMissionProgressRequest
     {
-        public string? SanDOriaMission { get; set; }
+        public string? SandOriaMission { get; set; }
 
         public string? BastokMission { get; set; }
 
@@ -593,4 +690,18 @@ public sealed class CharactersController(
     }
 
     private sealed record CharacterWishlistAssignmentUpdate(int ItemId, List<int> CharacterIds);
+
+    public sealed class UpdateDynamisClearsRequest
+    {
+        public bool DynamisSandOria { get; set; }
+        public bool DynamisBastok { get; set; }
+        public bool DynamisWindurst { get; set; }
+        public bool DynamisJeuno { get; set; }
+        public bool DynamisBeaucedine { get; set; }
+        public bool DynamisXarcabard { get; set; }
+        public bool DynamisValkurm { get; set; }
+        public bool DynamisBuburimu { get; set; }
+        public bool DynamisQufim { get; set; }
+        public bool DynamisTavnazia { get; set; }
+    }
 }

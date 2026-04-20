@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  CharacterDynamisClears,
   CharacterMissionProgress,
   CharacterWishlistAssignment,
   CharacterWishlistItem,
@@ -91,12 +92,16 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   ];
   private missionSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private missionSavedNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+  private dynamisSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private wishlistSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private isSavingMission = false;
+  private isSavingDynamis = false;
   private isSavingWishlist = false;
   private pendingMissionSave = false;
+  private pendingDynamisSave = false;
   private pendingWishlistSave = false;
   private lastSavedMissionSignature = '';
+  private lastSavedDynamisSignature = '';
   private lastSavedWishlistSignature = '';
 
   protected readonly isLoadingCharacters = signal(true);
@@ -108,11 +113,14 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   protected readonly selectedCharacterId = signal<number | null>(null);
   protected readonly detail = signal<CharacterWorkspaceDetailResponse | null>(null);
   protected readonly missionDraft = signal<CharacterMissionProgress>(this.createEmptyMissionProgress());
+  protected readonly dynamisDraft = signal<CharacterDynamisClears>(this.createEmptyDynamisClears());
   protected readonly wishlistAssignments = signal<CharacterWishlistAssignment[]>([]);
   protected readonly missionSaveState = signal<SaveState>('idle');
   protected readonly missionSavedNoticeVisible = signal(false);
+  protected readonly dynamisSaveState = signal<SaveState>('idle');
   protected readonly wishlistSaveState = signal<SaveState>('idle');
   protected readonly missionError = signal<string | null>(null);
+  protected readonly dynamisError = signal<string | null>(null);
   protected readonly wishlistError = signal<string | null>(null);
 
   protected readonly wishlistFilter = signal('');
@@ -153,6 +161,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   public ngOnDestroy(): void {
     this.clearMissionTimer();
     this.clearMissionSavedNoticeTimer();
+    this.clearDynamisTimer();
     this.clearWishlistTimer();
   }
 
@@ -164,13 +173,17 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     this.selectedCharacterId.set(characterId);
     this.detailError.set(null);
     this.missionError.set(null);
+    this.dynamisError.set(null);
     this.wishlistError.set(null);
     this.missionSaveState.set('idle');
     this.missionSavedNoticeVisible.set(false);
+    this.dynamisSaveState.set('idle');
     this.wishlistSaveState.set('idle');
     this.pendingMissionSave = false;
+    this.pendingDynamisSave = false;
     this.pendingWishlistSave = false;
     this.clearMissionTimer();
+    this.clearDynamisTimer();
     this.clearWishlistTimer();
     this.loadCharacterDetail(characterId);
   }
@@ -194,6 +207,13 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     this.missionSavedNoticeVisible.set(false);
     this.missionError.set(null);
     this.queueMissionSave();
+  }
+
+  protected updateDynamis(field: keyof CharacterDynamisClears, value: boolean): void {
+    this.dynamisDraft.update((current) => ({ ...current, [field]: value }));
+    this.dynamisSaveState.set('dirty');
+    this.dynamisError.set(null);
+    this.queueDynamisSave();
   }
 
   protected toggleWishlistItem(itemId: number): void {
@@ -252,6 +272,37 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     this.wishlistSaveState.set('dirty');
     this.wishlistError.set(null);
     this.queueWishlistSave();
+  }
+
+  protected markWishlistItemObtained(itemId: number): void {
+    const characterId = this.selectedCharacterId();
+    if (characterId === null) {
+      return;
+    }
+
+    this.characterWorkspaceService.markItemObtained(characterId, itemId).subscribe({
+      next: () => {
+        const assignments = this.wishlistAssignments();
+        const existing = assignments.find((assignment) => assignment.itemId === itemId);
+        if (!existing) {
+          return;
+        }
+
+        const remainingCharacterIds = existing.characterIds.filter((id) => id !== characterId);
+        const nextAssignments = remainingCharacterIds.length === 0
+          ? assignments.filter((assignment) => assignment.itemId !== itemId)
+          : assignments.map((assignment) =>
+              assignment.itemId === itemId ? { ...assignment, characterIds: remainingCharacterIds } : assignment
+            );
+
+        const normalized = this.normalizeWishlistAssignments(nextAssignments);
+        this.wishlistAssignments.set(normalized);
+        this.lastSavedWishlistSignature = this.serializeWishlist(normalized);
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.wishlistError.set(error.error?.message ?? 'Could not mark item as obtained.');
+      }
+    });
   }
 
   protected isWishlistItemNeeded(itemId: number): boolean {
@@ -360,6 +411,8 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
         this.detail.set(response);
         this.missionDraft.set(this.normalizeMissionProgress(response.missions));
+        this.dynamisDraft.set(response.dynamis ?? this.createEmptyDynamisClears());
+        this.lastSavedDynamisSignature = JSON.stringify(response.dynamis ?? this.createEmptyDynamisClears());
         const assignments = this.normalizeWishlistAssignments(
           response.wishlist.assignments?.length
             ? response.wishlist.assignments
@@ -394,6 +447,71 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
       void this.commitMissionSave();
     }, 700);
+  }
+
+  private queueDynamisSave(): void {
+    this.clearDynamisTimer();
+    this.dynamisSaveTimer = setTimeout(() => {
+      if (this.isSavingDynamis) {
+        this.pendingDynamisSave = true;
+        return;
+      }
+
+      void this.commitDynamisSave();
+    }, 700);
+  }
+
+  private async commitDynamisSave(): Promise<void> {
+    const characterId = this.selectedCharacterId();
+    if (characterId === null) {
+      return;
+    }
+
+    const payload = this.dynamisDraft();
+    const signature = JSON.stringify(payload);
+    if (signature === this.lastSavedDynamisSignature) {
+      this.dynamisSaveState.set('idle');
+      return;
+    }
+
+    this.isSavingDynamis = true;
+    this.dynamisSaveState.set('saving');
+    this.dynamisError.set(null);
+
+    this.characterWorkspaceService.updateDynamisClears(characterId, payload).subscribe({
+      next: (response) => {
+        if (this.selectedCharacterId() !== characterId) {
+          return;
+        }
+
+        this.dynamisDraft.set(response);
+        this.detail.update((current) => current ? { ...current, dynamis: response } : current);
+        this.lastSavedDynamisSignature = JSON.stringify(response);
+        this.dynamisSaveState.set('idle');
+      },
+      error: (error: { error?: { message?: string } }) => {
+        if (this.selectedCharacterId() !== characterId) {
+          return;
+        }
+
+        this.dynamisError.set(error.error?.message ?? 'Dynamis clears could not be saved.');
+        this.dynamisSaveState.set('error');
+      },
+      complete: () => {
+        this.isSavingDynamis = false;
+        if (this.pendingDynamisSave || JSON.stringify(this.dynamisDraft()) !== this.lastSavedDynamisSignature) {
+          this.pendingDynamisSave = false;
+          this.queueDynamisSave();
+        }
+      }
+    });
+  }
+
+  private clearDynamisTimer(): void {
+    if (this.dynamisSaveTimer) {
+      clearTimeout(this.dynamisSaveTimer);
+      this.dynamisSaveTimer = null;
+    }
   }
 
   private queueWishlistSave(): void {
@@ -543,7 +661,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
   private normalizeMissionProgress(progress: CharacterMissionProgress): CharacterMissionProgress {
     return {
-      sanDOriaMission: this.normalizeMissionValue(progress.sanDOriaMission),
+      sandOriaMission: this.normalizeMissionValue(progress.sandOriaMission),
       bastokMission: this.normalizeMissionValue(progress.bastokMission),
       windurstMission: this.normalizeMissionValue(progress.windurstMission),
       riseOfTheZilartMission: this.normalizeMissionValue(progress.riseOfTheZilartMission),
@@ -553,9 +671,24 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     };
   }
 
+  private createEmptyDynamisClears(): CharacterDynamisClears {
+    return {
+      dynamisSandOria: false,
+      dynamisBastok: false,
+      dynamisWindurst: false,
+      dynamisJeuno: false,
+      dynamisBeaucedine: false,
+      dynamisXarcabard: false,
+      dynamisValkurm: false,
+      dynamisBuburimu: false,
+      dynamisQufim: false,
+      dynamisTavnazia: false
+    };
+  }
+
   private createEmptyMissionProgress(): CharacterMissionProgress {
     return {
-      sanDOriaMission: null,
+      sandOriaMission: null,
       bastokMission: null,
       windurstMission: null,
       riseOfTheZilartMission: null,
@@ -587,7 +720,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
   private serializeMission(progress: CharacterMissionProgress): string {
     return JSON.stringify({
-      sanDOriaMission: this.normalizeMissionValue(progress.sanDOriaMission),
+      sandOriaMission: this.normalizeMissionValue(progress.sandOriaMission),
       bastokMission: this.normalizeMissionValue(progress.bastokMission),
       windurstMission: this.normalizeMissionValue(progress.windurstMission),
       riseOfTheZilartMission: this.normalizeMissionValue(progress.riseOfTheZilartMission),

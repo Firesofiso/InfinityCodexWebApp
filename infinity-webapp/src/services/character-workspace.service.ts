@@ -36,13 +36,26 @@ export interface HorizonCharacterDetail {
 }
 
 export interface CharacterMissionProgress {
-  sanDOriaMission?: string | null;
+  sandOriaMission?: string | null;
   bastokMission?: string | null;
   windurstMission?: string | null;
   riseOfTheZilartMission?: string | null;
   chainsOfPromathiaMission?: string | null;
   epilogueMission?: string | null;
   updatedAt?: string | null;
+}
+
+export interface CharacterDynamisClears {
+  dynamisSandOria: boolean;
+  dynamisBastok: boolean;
+  dynamisWindurst: boolean;
+  dynamisJeuno: boolean;
+  dynamisBeaucedine: boolean;
+  dynamisXarcabard: boolean;
+  dynamisValkurm: boolean;
+  dynamisBuburimu: boolean;
+  dynamisQufim: boolean;
+  dynamisTavnazia: boolean;
 }
 
 export interface CharacterWishlistItem {
@@ -84,6 +97,7 @@ export interface CharacterWorkspaceDetailResponse {
   horizon?: HorizonCharacterDetail | null;
   horizonError?: string | null;
   missions: CharacterMissionProgress;
+  dynamis: CharacterDynamisClears;
   wishlist: CharacterWishlist;
 }
 
@@ -117,6 +131,22 @@ export class CharacterWorkspaceService {
     return this.http.put<{ selectedItemIds: number[]; assignments: CharacterWishlistAssignment[] }>(
       `${this.apiUrl}/${characterId}/wishlist`,
       { assignments },
+      { withCredentials: true }
+    );
+  }
+
+  public updateDynamisClears(characterId: number, clears: CharacterDynamisClears): Observable<CharacterDynamisClears> {
+    return this.http.put<CharacterDynamisClears>(
+      `${this.apiUrl}/${characterId}/dynamis`,
+      clears,
+      { withCredentials: true }
+    );
+  }
+
+  public markItemObtained(characterId: number, itemId: number): Observable<void> {
+    return this.http.post<void>(
+      `${this.apiUrl}/${characterId}/wishlist/${itemId}/obtained`,
+      {},
       { withCredentials: true }
     );
   }

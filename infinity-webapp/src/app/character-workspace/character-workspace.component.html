@@ -37,9 +37,13 @@
           [missionSaveState]="missionSaveState()"
           [missionSavedNoticeVisible]="missionSavedNoticeVisible()"
           [missionError]="missionError()"
+          [dynamisDraft]="dynamisDraft()"
+          [dynamisSaveState]="dynamisSaveState()"
+          [dynamisError]="dynamisError()"
           (mainCharacterSelected)="setMainCharacter($event)"
           (characterSelected)="selectCharacter($event)"
           (missionChanged)="updateMission($event.field, $event.value)"
+          (dynamisChanged)="updateDynamis($event.field, $event.value)"
         ></app-character-detail-panel>
         <section class="space-y-5 xl:col-start-2">
           <div class="rounded-lg border border-white/10 bg-white/5 p-4">
@@ -117,7 +121,17 @@
               <div class="mt-3 text-xs text-white/40">{{ getWishlistSourceSummary(item) }}</div>
 
               <div *ngIf="isWishlistItemNeeded(item.itemId)" class="mt-4 rounded-sm border border-white/10 bg-black/20 p-3">
-                <div class="text-xs uppercase tracking-[0.2em] text-white/40">Assigned Characters</div>
+                <div class="flex items-center justify-between gap-3">
+                  <div class="text-xs uppercase tracking-[0.2em] text-white/40">Assigned Characters</div>
+                  <button
+                    *ngIf="isWishlistAssignedToCharacter(item.itemId, selectedCharacterId()!)"
+                    type="button"
+                    (click)="markWishlistItemObtained(item.itemId)"
+                    class="rounded-sm border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-100 hover:bg-amber-500/20 transition-colors"
+                  >
+                    Mark obtained
+                  </button>
+                </div>
                 <div class="mt-2 flex flex-wrap gap-2">
                   <button
                     *ngFor="let character of characters()"

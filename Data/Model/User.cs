@@ -21,9 +21,6 @@ public class User
 
     public bool IsRegistrationComplete { get; set; }
 
-    [Required]
-    public string PreferredJobsCsv { get; set; } = string.Empty;
-
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? RegistrationCompletedAt { get; set; }

@@ -182,7 +182,6 @@ public class AuthController : ControllerBase
             Role = AppRoles.Reader,
             IsActive = true,
             IsRegistrationComplete = false,
-            PreferredJobsCsv = string.Empty,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -292,11 +291,17 @@ public class AuthController : ControllerBase
             .Take(3)
             .ToListAsync();
 
+        var preferredJobs = await _dbContext.UserPreferredJobs
+            .Where(entity => entity.UserId == user.Id)
+            .OrderBy(entity => entity.JobCode)
+            .Select(entity => entity.JobCode)
+            .ToListAsync();
+
         return Ok(new
         {
             IsRegistrationComplete = user.IsRegistrationComplete,
             DisplayName = user.DisplayName,
-            PreferredJobs = SplitPreferredJobs(user.PreferredJobsCsv),
+            PreferredJobs = preferredJobs,
             CharacterNames = characterNames,
             DiscordName = User.Identity?.Name
         });
@@ -386,7 +391,6 @@ public class AuthController : ControllerBase
         user.DisplayName = displayName;
         user.IsRegistrationComplete = true;
         user.RegistrationCompletedAt = DateTime.UtcNow;
-        user.PreferredJobsCsv = string.Join(',', normalizedPreferredJobs);
 
         var existingPreferredJobs = await _dbContext.UserPreferredJobs
             .Where(entity => entity.UserId == user.Id)
@@ -822,19 +826,6 @@ public class AuthController : ControllerBase
             .OrderBy(characterName => characterName, StringComparer.OrdinalIgnoreCase)
             .Take(3)
             .ToList();
-    }
-
-    private static IReadOnlyList<string> SplitPreferredJobs(string preferredJobsCsv)
-    {
-        if (string.IsNullOrWhiteSpace(preferredJobsCsv))
-        {
-            return Array.Empty<string>();
-        }
-
-        return preferredJobsCsv
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
     }
 
     private sealed record DiscordTokenResponse(string AccessToken, string TokenType);

@@ -1,14 +1,13 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
-import { CharacterProfileDetail } from '../character-profile-detail/character-profile-detail';
 import { FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 
 @Component({
     selector: 'app-dashboard',
-    imports: [CharacterProfileDetail, FullCalendarModule],
+    imports: [FullCalendarModule],
     templateUrl: './dashboard.component.html'
 })
 export class DashboardComponent implements OnInit {
