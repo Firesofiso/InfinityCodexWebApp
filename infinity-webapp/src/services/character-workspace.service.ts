@@ -132,6 +132,22 @@ export interface DkpAdjustmentResponse {
   transaction: DkpTransactionEntry;
 }
 
+export interface DkpBulkEarnRequest {
+  label: string;
+  amount: number;
+  characterIds: number[];
+  occurredAt?: string | null;
+}
+
+export interface DkpBulkEarnResponse {
+  eventId: number;
+  label: string;
+  amount: number;
+  occurredAt: string;
+  affectedMemberCount: number;
+  transactions: DkpTransactionEntry[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class CharacterWorkspaceService {
   private readonly apiUrl = '/api/characters/workspace';
@@ -205,6 +221,14 @@ export class CharacterWorkspaceService {
         params: { limit },
         withCredentials: true
       }
+    );
+  }
+
+  public createBulkEarnEvent(payload: DkpBulkEarnRequest): Observable<DkpBulkEarnResponse> {
+    return this.http.post<DkpBulkEarnResponse>(
+      '/api/dkp/events/earn',
+      payload,
+      { withCredentials: true }
     );
   }
 }

@@ -67,7 +67,6 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
     }
 
     [HttpPost("characters/{characterId:int}/adjust")]
-    [Authorize(Policy = AuthorizationPolicies.RequireManagerOrAdmin)]
     public async Task<IActionResult> AdjustCharacterDkp(
         int characterId,
         [FromBody] DkpManualAdjustmentRequest? request,
@@ -101,6 +100,11 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
         }
 
         if (!actor.IsActive)
+        {
+            return Forbid();
+        }
+
+        if (!await CanManageDkpAsync(actor, cancellationToken))
         {
             return Forbid();
         }
@@ -168,7 +172,6 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
     }
 
     [HttpPost("events/earn")]
-    [Authorize(Policy = AuthorizationPolicies.RequireManagerOrAdmin)]
     public async Task<IActionResult> CreateBulkEarnEvent(
         [FromBody] DkpBulkEarnRequest? request,
         CancellationToken cancellationToken)
@@ -214,6 +217,11 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
             return Forbid();
         }
 
+        if (!await CanManageDkpAsync(actor, cancellationToken))
+        {
+            return Forbid();
+        }
+
         List<Character> characters = await dbContext.Characters
             .Where(c => requestedCharacterIds.Contains(c.Id) && c.IsActive)
             .ToListAsync(cancellationToken);
@@ -239,6 +247,7 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
 
         List<User> targetUsers = await dbContext.Users
             .Where(u => targetUserIds.Contains(u.Id) && u.IsActive)
+            .OrderBy(u => u.Id)
             .ToListAsync(cancellationToken);
 
         if (targetUsers.Count != targetUserIds.Length)
@@ -262,7 +271,8 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
         dbContext.DkpEarnEvents.Add(earnEvent);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        List<DkpTransactionResponse> entries = new(targetUsers.Count);
+        DateTime entryCreatedAt = DateTime.UtcNow;
+        List<DkpTransaction> ledgerEntries = new(targetUsers.Count);
         foreach (User targetUser in targetUsers)
         {
             targetUser.DkpBalance += request.Amount;
@@ -276,13 +286,18 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
                 BalanceAfter = targetUser.DkpBalance,
                 CreatedByUserId = actor.Id,
                 EarnEventId = earnEvent.Id,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = entryCreatedAt
             };
 
-            dbContext.DkpTransactions.Add(ledgerEntry);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            ledgerEntries.Add(ledgerEntry);
+        }
 
-            entries.Add(new DkpTransactionResponse(
+        dbContext.DkpTransactions.AddRange(ledgerEntries);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await dbTransaction.CommitAsync(cancellationToken);
+
+        IReadOnlyList<DkpTransactionResponse> entries = ledgerEntries
+            .Select(ledgerEntry => new DkpTransactionResponse(
                 ledgerEntry.Id,
                 ledgerEntry.SourceType,
                 ledgerEntry.Reason,
@@ -290,11 +305,8 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
                 ledgerEntry.BalanceAfter,
                 ledgerEntry.CreatedAt,
                 ledgerEntry.CharacterId,
-                ledgerEntry.EarnEventId));
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await dbTransaction.CommitAsync(cancellationToken);
+                ledgerEntry.EarnEventId))
+            .ToList();
 
         return Ok(new DkpBulkEarnResponse(
             earnEvent.Id,
@@ -309,6 +321,22 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
     {
         return string.Equals(user.Role, AppRoles.Admin, StringComparison.OrdinalIgnoreCase)
             || string.Equals(user.Role, AppRoles.Manager, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<bool> CanManageDkpAsync(User user, CancellationToken cancellationToken)
+    {
+        if (HasDkpWriteAccess(user))
+        {
+            return true;
+        }
+
+        bool hasAnyManagerOrAdmin = await dbContext.Users.AnyAsync(
+            entity => entity.IsActive
+                && (entity.Role == AppRoles.Admin || entity.Role == AppRoles.Manager),
+            cancellationToken);
+
+        // Bootstrap mode: if no manager/admin accounts exist yet, allow active users to use DKP tools.
+        return !hasAnyManagerOrAdmin;
     }
 
     private async Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken)

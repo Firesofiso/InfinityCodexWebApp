@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  DkpBulkEarnResponse,
   DkpTransactionEntry,
   CharacterDynamisClears,
   CharacterMissionProgress,
@@ -134,15 +135,21 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   protected readonly wishlistError = signal<string | null>(null);
 
   // DKP-specific state
-  protected readonly isAdmin = computed(() => {
+  protected readonly canManageDkp = computed(() => {
     const role = this.authService.session()?.role ?? '';
-    return role === 'Admin' || role === 'Manager';
+    return role === 'Admin' || role === 'Manager' || role === 'Reader' || role === 'Contributor';
   });
   protected readonly dkpHistory = signal<DkpHistoryEntry[]>([]);
   protected readonly dkpAwardAmount = signal<number | null>(null);
   protected readonly dkpAwardReason = signal('');
   protected readonly dkpAwardError = signal<string | null>(null);
   protected readonly dkpAwardSaving = signal(false);
+  protected readonly bulkEarnLabel = signal('');
+  protected readonly bulkEarnAmount = signal<number | null>(null);
+  protected readonly bulkEarnSelectedCharacterIds = signal<number[]>([]);
+  protected readonly bulkEarnError = signal<string | null>(null);
+  protected readonly bulkEarnNotice = signal<string | null>(null);
+  protected readonly bulkEarnSaving = signal(false);
 
   // Tab for the secondary info panel (jobs, dynamis, missions)
   protected readonly secondaryTab = signal<'jobs' | 'dynamis' | 'missions'>('jobs');
@@ -200,6 +207,8 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     this.dynamisError.set(null);
     this.wishlistError.set(null);
     this.dkpAwardError.set(null);
+    this.bulkEarnError.set(null);
+    this.bulkEarnNotice.set(null);
     this.missionSaveState.set('idle');
     this.missionSavedNoticeVisible.set(false);
     this.dynamisSaveState.set('idle');
@@ -407,6 +416,63 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
+  protected isBulkEarnCharacterSelected(characterId: number): boolean {
+    return this.bulkEarnSelectedCharacterIds().includes(characterId);
+  }
+
+  protected toggleBulkEarnCharacter(characterId: number): void {
+    this.bulkEarnSelectedCharacterIds.update((current) => {
+      if (current.includes(characterId)) {
+        return current.filter((value) => value !== characterId);
+      }
+
+      return [...current, characterId].sort((left, right) => left - right);
+    });
+  }
+
+  protected submitBulkEarn(): void {
+    const label = this.bulkEarnLabel().trim();
+    const amount = this.bulkEarnAmount();
+    const characterIds = this.bulkEarnSelectedCharacterIds();
+
+    if (!label) {
+      this.bulkEarnError.set('An event label is required.');
+      return;
+    }
+
+    if (amount === null || amount <= 0) {
+      this.bulkEarnError.set('Earn amount must be greater than zero.');
+      return;
+    }
+
+    if (characterIds.length === 0) {
+      this.bulkEarnError.set('Select at least one character.');
+      return;
+    }
+
+    this.bulkEarnError.set(null);
+    this.bulkEarnNotice.set(null);
+    this.bulkEarnSaving.set(true);
+
+    this.characterWorkspaceService.createBulkEarnEvent({
+      label,
+      amount,
+      characterIds
+    }).subscribe({
+      next: (response) => {
+        this.applyBulkEarnResponse(response);
+        this.bulkEarnLabel.set('');
+        this.bulkEarnAmount.set(null);
+        this.bulkEarnNotice.set(`Applied ${amount} DKP to ${characterIds.length} selected character(s).`);
+        this.bulkEarnSaving.set(false);
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.bulkEarnError.set(error.error?.message ?? 'Bulk earn event could not be saved.');
+        this.bulkEarnSaving.set(false);
+      }
+    });
+  }
+
   protected getNationLabel(nation?: number | null): string {
     switch (nation) {
       case 0:
@@ -452,12 +518,14 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       next: (response) => {
         const characters = response.characters ?? [];
         this.characters.set(characters);
+        this.bulkEarnSelectedCharacterIds.set(characters.map((character) => character.characterId));
         this.isLoadingCharacters.set(false);
 
         if (characters.length === 0) {
           this.mainCharacterId.set(null);
           this.selectedCharacterId.set(null);
           this.detail.set(null);
+          this.bulkEarnSelectedCharacterIds.set([]);
           return;
         }
 
@@ -482,6 +550,9 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
         }
 
         this.detail.set(response);
+        if (this.bulkEarnSelectedCharacterIds().length === 0) {
+          this.bulkEarnSelectedCharacterIds.set(this.characters().map((character) => character.characterId));
+        }
         this.missionDraft.set(this.normalizeMissionProgress(response.missions));
         this.dynamisDraft.set(response.dynamis ?? this.createEmptyDynamisClears());
         this.lastSavedDynamisSignature = JSON.stringify(response.dynamis ?? this.createEmptyDynamisClears());
@@ -679,6 +750,31 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
       reason: entry.reason,
       amount: entry.amount
     };
+  }
+
+  private applyBulkEarnResponse(response: DkpBulkEarnResponse): void {
+    if (response.transactions.length === 0) {
+      return;
+    }
+
+    const latestBalance = response.transactions[response.transactions.length - 1].balanceAfter;
+
+    this.detail.update((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        character: {
+          ...current.character,
+          dkpTotal: latestBalance
+        }
+      };
+    });
+
+    const newHistoryEntries = response.transactions.map((entry) => this.toHistoryEntry(entry));
+    this.dkpHistory.update((current) => [...newHistoryEntries, ...current]);
   }
 
   private getDkpTypeLabel(sourceType: string, amount: number): string {
