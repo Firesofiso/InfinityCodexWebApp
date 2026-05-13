@@ -1,0 +1,108 @@
+<div class="space-y-4">
+  <div *ngIf="searchable">
+    <input
+      [ngModel]="searchQuery()"
+      (ngModelChange)="setSearch($event)"
+      class="w-full rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-300/50"
+      [placeholder]="searchPlaceholder"
+    />
+  </div>
+
+  <div *ngIf="loading" class="rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/60">
+    {{ loadingMessage }}
+  </div>
+
+  <div *ngIf="!loading && displayData().length === 0" class="rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/60">
+    {{ emptyMessage }}
+  </div>
+
+  <div *ngIf="!loading && displayData().length > 0" class="overflow-x-auto rounded-lg border border-white/10">
+    <table class="w-full text-sm">
+      <thead class="border-b border-white/10 bg-white/5">
+        <tr>
+          <th
+            *ngFor="let col of columns; trackBy: trackByIndex"
+            class="px-4 py-3 text-xs font-medium uppercase tracking-[0.15em] text-white/40"
+            [ngClass]="col.headerClass ?? 'text-left'"
+            [class.cursor-pointer]="col.sortable"
+            [class.hover:text-white]="col.sortable"
+            [class.select-none]="col.sortable"
+            (click)="toggleSort(col)"
+          >
+            <span class="inline-flex items-center gap-1">
+              {{ col.header }}
+              <span *ngIf="col.sortable" class="text-white/30">
+                <span *ngIf="sortKey() === col.key && sortDirection() === 'asc'">↑</span>
+                <span *ngIf="sortKey() === col.key && sortDirection() === 'desc'">↓</span>
+                <span *ngIf="sortKey() !== col.key">↕</span>
+              </span>
+            </span>
+          </th>
+          <th
+            *ngIf="actions.length > 0"
+            class="px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.15em] text-white/40"
+          >
+            Actions
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let row of displayData(); trackBy: trackByIndex"
+          class="border-b border-white/5 transition last:border-0 hover:bg-white/5"
+        >
+          <td
+            *ngFor="let col of columns; trackBy: trackByIndex"
+            class="px-4 py-3 text-white/80"
+            [ngClass]="col.cellClass"
+          >
+            <a
+              *ngIf="getRouterLink(row, col) as link; else externalLinkTmpl"
+              [routerLink]="link"
+              class="text-cyan-300 transition hover:text-cyan-200 hover:underline"
+            >
+              {{ getCellValue(row, col) }}
+            </a>
+            <ng-template #externalLinkTmpl>
+              <a
+                *ngIf="getExternalLink(row, col) as href; else plainTmpl"
+                [href]="href"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-cyan-300 transition hover:text-cyan-200 hover:underline"
+              >
+                {{ getCellValue(row, col) }}
+              </a>
+            </ng-template>
+            <ng-template #plainTmpl>
+              {{ getCellValue(row, col) }}
+            </ng-template>
+          </td>
+
+          <td *ngIf="actions.length > 0" class="px-4 py-3">
+            <div class="flex flex-wrap gap-2">
+              <button
+                *ngFor="let action of getVisibleActions(row); trackBy: trackByIndex"
+                type="button"
+                [disabled]="isActionDisabled(action, row)"
+                (click)="action.onClick(row)"
+                class="rounded-sm border px-2 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-40"
+                [class.border-white/10]="action.variant !== 'danger'"
+                [class.bg-white/5]="action.variant !== 'danger'"
+                [class.text-white/70]="action.variant !== 'danger'"
+                [class.hover:bg-white/10]="action.variant !== 'danger'"
+                [class.hover:text-white]="action.variant !== 'danger'"
+                [class.border-red-400/30]="action.variant === 'danger'"
+                [class.bg-red-500/10]="action.variant === 'danger'"
+                [class.text-red-200]="action.variant === 'danger'"
+                [class.hover:bg-red-500/20]="action.variant === 'danger'"
+              >
+                {{ action.label }}
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
