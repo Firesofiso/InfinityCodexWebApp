@@ -86,18 +86,56 @@ public sealed class CharactersController(
             return Forbid();
         }
 
-        var characters = await dbContext.Characters
+        List<Character> characterEntities = await dbContext.Characters
             .Where(character => character.OwnerUserId == user.Id && character.IsActive)
             .OrderBy(character => character.Name)
+            .ToListAsync(cancellationToken);
+
+        List<CharacterWorkspaceListItemResponse> characters = characterEntities
             .Select(character => new CharacterWorkspaceListItemResponse(
                 character.Id,
                 character.Name,
                 character.IsActive,
                 character.PortraitUrl,
-                character.LastSyncedAt))
-            .ToListAsync(cancellationToken);
+                character.LastSyncedAt,
+                user.DkpBalance))
+            .ToList();
 
-        return Ok(new CharacterWorkspaceListResponse(characters));
+        int? mainCharacterId = characterEntities.FirstOrDefault(c => c.IsMain)?.Id;
+
+        return Ok(new CharacterWorkspaceListResponse(characters, mainCharacterId));
+    }
+
+    [HttpPut("workspace/{characterId:int}/set-main")]
+    public async Task<IActionResult> SetMainCharacter(int characterId, CancellationToken cancellationToken)
+    {
+        User? user = await GetCurrentUserAsync(cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized(new { message = "User session could not be resolved." });
+        }
+
+        if (!user.IsActive)
+        {
+            return Forbid();
+        }
+
+        Character? character = await dbContext.Characters
+            .FirstOrDefaultAsync(c => c.Id == characterId && c.OwnerUserId == user.Id && c.IsActive, cancellationToken);
+
+        if (character is null)
+        {
+            return NotFound(new { message = "Character was not found." });
+        }
+
+        await dbContext.Characters
+            .Where(c => c.OwnerUserId == user.Id && c.IsMain)
+            .ExecuteUpdateAsync(setter => setter.SetProperty(c => c.IsMain, false), cancellationToken);
+
+        character.IsMain = true;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     [HttpGet("workspace/{characterId:int}")]
@@ -237,7 +275,7 @@ public sealed class CharactersController(
             .ToList();
 
         return Ok(new CharacterWorkspaceDetailResponse(
-            new CharacterWorkspaceListItemResponse(character.Id, character.Name, character.IsActive, character.PortraitUrl, character.LastSyncedAt),
+            new CharacterWorkspaceListItemResponse(character.Id, character.Name, character.IsActive, character.PortraitUrl, character.LastSyncedAt, user.DkpBalance),
             horizonResponse,
             horizonError,
             new CharacterMissionProgressResponse(
@@ -587,9 +625,9 @@ public sealed class CharactersController(
         string GroupTag,
         string GroupName);
 
-    public sealed record CharacterWorkspaceListResponse(IReadOnlyList<CharacterWorkspaceListItemResponse> Characters);
+    public sealed record CharacterWorkspaceListResponse(IReadOnlyList<CharacterWorkspaceListItemResponse> Characters, int? MainCharacterId);
 
-    public sealed record CharacterWorkspaceListItemResponse(int CharacterId, string Name, bool IsActive, string? PortraitUrl, DateTime? LastSyncedAt);
+    public sealed record CharacterWorkspaceListItemResponse(int CharacterId, string Name, bool IsActive, string? PortraitUrl, DateTime? LastSyncedAt, int? DkpTotal);
 
     public sealed record CharacterWorkspaceDetailResponse(
         CharacterWorkspaceListItemResponse Character,

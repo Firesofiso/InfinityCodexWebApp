@@ -8,6 +8,8 @@ export interface CharacterWorkspaceListItem {
   isActive: boolean;
   portraitUrl?: string | null;
   lastSyncedAt?: string | null;
+  // Not yet returned by the workspace endpoint — populated from roster when available
+  dkpTotal?: number | null;
 }
 
 export interface CharacterWorkspaceListResponse {
@@ -101,6 +103,35 @@ export interface CharacterWorkspaceDetailResponse {
   wishlist: CharacterWishlist;
 }
 
+export interface DkpTransactionEntry {
+  id: number;
+  sourceType: string;
+  reason: string;
+  amount: number;
+  balanceAfter: number;
+  createdAt: string;
+  characterId?: number | null;
+  earnEventId?: number | null;
+}
+
+export interface DkpTransactionListResponse {
+  characterId: number;
+  userId: number;
+  entries: DkpTransactionEntry[];
+}
+
+export interface DkpAdjustmentRequest {
+  amount: number;
+  reason: string;
+}
+
+export interface DkpAdjustmentResponse {
+  characterId: number;
+  userId: number;
+  newBalance: number;
+  transaction: DkpTransactionEntry;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CharacterWorkspaceService {
   private readonly apiUrl = '/api/characters/workspace';
@@ -148,6 +179,32 @@ export class CharacterWorkspaceService {
       `${this.apiUrl}/${characterId}/wishlist/${itemId}/obtained`,
       {},
       { withCredentials: true }
+    );
+  }
+
+  public setMainCharacter(characterId: number): Observable<void> {
+    return this.http.put<void>(
+      `${this.apiUrl}/${characterId}/set-main`,
+      {},
+      { withCredentials: true }
+    );
+  }
+
+  public adjustDkp(characterId: number, payload: DkpAdjustmentRequest): Observable<DkpAdjustmentResponse> {
+    return this.http.post<DkpAdjustmentResponse>(
+      `/api/dkp/characters/${characterId}/adjust`,
+      payload,
+      { withCredentials: true }
+    );
+  }
+
+  public getDkpTransactions(characterId: number, limit: number = 50): Observable<DkpTransactionListResponse> {
+    return this.http.get<DkpTransactionListResponse>(
+      `/api/dkp/characters/${characterId}/transactions`,
+      {
+        params: { limit },
+        withCredentials: true
+      }
     );
   }
 }

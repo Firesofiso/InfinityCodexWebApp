@@ -1,163 +1,188 @@
 <div class="min-h-full">
   <section class="min-h-full space-y-4">
-    <div *ngIf="isLoadingCharacters()" class="rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/70">
-      Loading your character list...
-    </div>
 
-    <div *ngIf="pageError() as errorMessage" class="rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-      {{ errorMessage }}
-    </div>
-
-    <div *ngIf="!isLoadingCharacters() && !pageError() && characters().length === 0" class="rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/70">
-      No registered characters were found for this account.
-    </div>
-
-    <div *ngIf="isLoadingDetail() && !detail()" class="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
-      Loading character detail...
-    </div>
-
-    <div *ngIf="detailError() as errorMessage" class="rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-      {{ errorMessage }}
-    </div>
-
-    <div *ngIf="!isLoadingDetail() && !detailError() && !detail() && characters().length > 0" class="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
-      Select a character to view details.
-    </div>
-
-    <div *ngIf="detail() as currentDetail" class="space-y-5">
-      <div class="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <app-character-detail-panel
-          class="xl:col-start-1"
-          [characters]="characters()"
-          [mainCharacterId]="mainCharacterId()"
-          [selectedCharacterId]="selectedCharacterId()"
-          [currentDetail]="currentDetail"
-          [isLoadingDetail]="isLoadingDetail()"
-          [missionDraft]="missionDraft()"
-          [missionSaveState]="missionSaveState()"
-          [missionSavedNoticeVisible]="missionSavedNoticeVisible()"
-          [missionError]="missionError()"
-          [dynamisDraft]="dynamisDraft()"
-          [dynamisSaveState]="dynamisSaveState()"
-          [dynamisError]="dynamisError()"
-          (mainCharacterSelected)="setMainCharacter($event)"
-          (characterSelected)="selectCharacter($event)"
-          (missionChanged)="updateMission($event.field, $event.value)"
-          (dynamisChanged)="updateDynamis($event.field, $event.value)"
-        ></app-character-detail-panel>
-        <section class="space-y-5 xl:col-start-2">
-          <div class="rounded-lg border border-white/10 bg-white/5 p-4">
-            <div class="flex items-center justify-between gap-4">
-              <h2 class="text-xl font-semibold text-white">Player Workspace</h2>
-              <div class="rounded-sm border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 text-sm font-semibold text-amber-50">
-                DKP: 99
-              </div>
-            </div>
-          </div>
-
-          <div class="rounded-lg border border-white/10 bg-white/5 p-4">
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h3 class="text-lg font-semibold text-white">Gear Wishlist</h3>
-                <p class="text-sm text-white/60">Player-owned wishlist with required character assignment per item.</p>
-              </div>
-
-              <label class="grid gap-1 text-sm text-white/70">
-                <span class="text-xs uppercase tracking-[0.2em] text-white/40">Filter</span>
-                <input
-                  [ngModel]="wishlistFilter()"
-                  (ngModelChange)="wishlistFilter.set($event)"
-                  class="w-full rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-cyan-300/50 lg:w-80"
-                  placeholder="Filter items, slots, jobs, or sources"
-                />
-              </label>
-            </div>
-
-          <div *ngIf="wishlistError() as errorMessage" class="mt-4 rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            {{ errorMessage }}
-          </div>
-
-          <div *ngIf="filteredWishlistItems().length === 0" class="mt-4 rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/70">
-            No managed items are available in the catalog yet.
-          </div>
-
-          <div *ngIf="filteredWishlistItems().length > 0" class="mt-4 grid gap-3 md:grid-cols-2">
-            <article
-              *ngFor="let item of filteredWishlistItems()"
-              class="rounded-md border p-4 transition"
-              [class.border-emerald-300/40]="isWishlistItemNeeded(item.itemId)"
-              [class.bg-emerald-500/10]="isWishlistItemNeeded(item.itemId)"
-              [class.border-white/10]="!isWishlistItemNeeded(item.itemId)"
-              [class.bg-black/10]="!isWishlistItemNeeded(item.itemId)"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="truncate text-base font-medium text-white">{{ item.name }}</div>
-                  <div class="mt-1 text-xs text-white/50">{{ item.slot || 'Any slot' }} · Lv {{ item.requiredLevel }}</div>
-                </div>
-
-                <button
-                  type="button"
-                  (click)="toggleWishlistItem(item.itemId)"
-                  class="rounded-sm px-2.5 py-1 text-xs font-medium"
-                  [class.bg-emerald-400/20]="isWishlistItemNeeded(item.itemId)"
-                  [class.text-emerald-100]="isWishlistItemNeeded(item.itemId)"
-                  [class.bg-white/10]="!isWishlistItemNeeded(item.itemId)"
-                  [class.text-white/70]="!isWishlistItemNeeded(item.itemId)"
-                >
-                  {{ isWishlistItemNeeded(item.itemId) ? 'Assigned' : 'Add' }}
-                </button>
-              </div>
-
-              <p class="mt-3 line-clamp-2 text-sm text-white/60">{{ item.notes || 'No notes for this item.' }}</p>
-
-              <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                <span *ngFor="let job of item.allowedJobs.slice(0, 4)" class="rounded-sm border border-cyan-300/20 bg-cyan-400/10 px-2 py-1 text-cyan-50">
-                  {{ job }}
-                </span>
-                <span *ngIf="item.allowedJobs.length === 0" class="text-white/40">All jobs</span>
-              </div>
-
-              <div class="mt-3 text-xs text-white/40">{{ getWishlistSourceSummary(item) }}</div>
-
-              <div *ngIf="isWishlistItemNeeded(item.itemId)" class="mt-4 rounded-sm border border-white/10 bg-black/20 p-3">
-                <div class="flex items-center justify-between gap-3">
-                  <div class="text-xs uppercase tracking-[0.2em] text-white/40">Assigned Characters</div>
-                  <button
-                    *ngIf="isWishlistAssignedToCharacter(item.itemId, selectedCharacterId()!)"
-                    type="button"
-                    (click)="markWishlistItemObtained(item.itemId)"
-                    class="rounded-sm border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-100 hover:bg-amber-500/20 transition-colors"
-                  >
-                    Mark obtained
-                  </button>
-                </div>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  <button
-                    *ngFor="let character of characters()"
-                    type="button"
-                    (click)="toggleWishlistAssignmentCharacter(item.itemId, character.characterId)"
-                    class="rounded-sm border px-2.5 py-1 text-xs"
-                    [class.border-cyan-300/40]="isWishlistAssignedToCharacter(item.itemId, character.characterId)"
-                    [class.bg-cyan-400/15]="isWishlistAssignedToCharacter(item.itemId, character.characterId)"
-                    [class.text-cyan-100]="isWishlistAssignedToCharacter(item.itemId, character.characterId)"
-                    [class.border-white/10]="!isWishlistAssignedToCharacter(item.itemId, character.characterId)"
-                    [class.bg-white/5]="!isWishlistAssignedToCharacter(item.itemId, character.characterId)"
-                    [class.text-white/70]="!isWishlistAssignedToCharacter(item.itemId, character.characterId)"
-                  >
-                    {{ character.name }}
-                  </button>
-                </div>
-
-                <div class="mt-3 text-xs text-white/60" *ngIf="getWishlistAssignmentCharacterIds(item.itemId).length > 0">
-                  Assigned to {{ getWishlistAssignmentCharacterIds(item.itemId).map(getCharacterNameById.bind(this)).join(', ') }}
-                </div>
-              </div>
-            </article>
-          </div>
-          </div>
-        </section>
+    @if (isLoadingCharacters()) {
+      <div class="rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/70">
+        Loading your character list...
       </div>
-    </div>
+    }
+
+    @if (pageError(); as errorMessage) {
+      <div class="rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+        {{ errorMessage }}
+      </div>
+    }
+
+    @if (!isLoadingCharacters() && !pageError() && characters().length === 0) {
+      <div class="rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/70">
+        No registered characters were found for this account.
+      </div>
+    }
+
+    @if (isLoadingDetail() && !detail()) {
+      <div class="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+        Loading character detail...
+      </div>
+    }
+
+    @if (detailError(); as errorMessage) {
+      <div class="rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+        {{ errorMessage }}
+      </div>
+    }
+
+    @if (!isLoadingDetail() && !detailError() && !detail() && characters().length > 0) {
+      <div class="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+        Select a character to view details.
+      </div>
+    }
+
+    @if (detail(); as currentDetail) {
+      <div class="space-y-5">
+        <div class="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
+
+          <!-- Left panel: character selector + secondary info -->
+          <app-character-detail-panel
+            class="xl:col-start-1"
+            [characters]="characters()"
+            [mainCharacterId]="mainCharacterId()"
+            [selectedCharacterId]="selectedCharacterId()"
+            [currentDetail]="currentDetail"
+            [isLoadingDetail]="isLoadingDetail()"
+            [missionDraft]="missionDraft()"
+            [missionSaveState]="missionSaveState()"
+            [missionSavedNoticeVisible]="missionSavedNoticeVisible()"
+            [missionError]="missionError()"
+            [dynamisDraft]="dynamisDraft()"
+            [dynamisSaveState]="dynamisSaveState()"
+            [dynamisError]="dynamisError()"
+            (mainCharacterSelected)="setMainCharacter($event)"
+            (characterSelected)="selectCharacter($event)"
+            (missionChanged)="updateMission($event.field, $event.value)"
+            (dynamisChanged)="updateDynamis($event.field, $event.value)"
+          ></app-character-detail-panel>
+
+          <!-- Right panel: DKP workspace -->
+          <section class="grid gap-5 xl:col-start-2 xl:grid-cols-2">
+
+            <!-- DKP cards column -->
+            <div class="space-y-5">
+
+            <!-- DKP balance — the primary information -->
+            <div class="rounded-lg border border-white/10 bg-white/5 p-5">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <div class="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                    DKP Balance
+                  </div>
+                  <div class="mt-1 text-5xl font-bold tabular-nums text-amber-300">
+                    {{ currentDetail.character.dkpTotal ?? 0 }}
+                  </div>
+                  <div class="mt-1 text-xs text-white/40">
+                    {{ currentDetail.character.name }}
+                  </div>
+                </div>
+
+                @if (isAdmin()) {
+                  <!-- Admin: award / deduct form -->
+                  <div class="min-w-0 flex-1 max-w-xs">
+                    <fieldset class="rounded-md border border-white/10 bg-black/20 p-3 space-y-3">
+                      <legend class="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
+                        Award / Deduct
+                      </legend>
+
+                      <label class="grid gap-1 text-sm text-white/70">
+                        <span class="text-xs text-white/50">Amount <span class="text-white/30">(negative to deduct)</span></span>
+                        <input
+                          type="number"
+                          [ngModel]="dkpAwardAmount()"
+                          (ngModelChange)="dkpAwardAmount.set($event)"
+                          class="w-full rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-amber-300/50"
+                          placeholder="e.g. 50 or -25"
+                        />
+                      </label>
+
+                      <label class="grid gap-1 text-sm text-white/70">
+                        <span class="text-xs text-white/50">Reason</span>
+                        <input
+                          type="text"
+                          [ngModel]="dkpAwardReason()"
+                          (ngModelChange)="dkpAwardReason.set($event)"
+                          class="w-full rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-amber-300/50"
+                          placeholder="e.g. Nyzul Isle attendance"
+                        />
+                      </label>
+
+                      @if (dkpAwardError()) {
+                        <div class="rounded-sm border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                          {{ dkpAwardError() }}
+                        </div>
+                      }
+
+                      <button
+                        type="button"
+                        (click)="submitDkpAward(currentDetail.character.characterId)"
+                        [disabled]="dkpAwardSaving()"
+                        class="w-full rounded-sm border border-amber-300/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        @if (dkpAwardSaving()) {
+                          Saving...
+                        } @else {
+                          Apply to {{ currentDetail.character.name }}
+                        }
+                      </button>
+                    </fieldset>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- DKP transaction history -->
+            <div class="rounded-lg border border-white/10 bg-white/5 p-5">
+              <h2 class="text-base font-semibold text-white">Transaction History</h2>
+              <p class="mt-0.5 text-xs text-white/40">Recent DKP earn and spend events for this character.</p>
+
+              @if (dkpHistory().length === 0) {
+                <div class="mt-4 rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/50">
+                  No DKP transactions recorded yet.
+                  <!-- TODO: load from /api/dkp/transactions?characterId= when endpoint exists -->
+                </div>
+              } @else {
+                <div class="mt-4 divide-y divide-white/5">
+                  @for (entry of dkpHistory(); track entry.id) {
+                    <div class="flex items-center justify-between gap-4 py-3">
+                      <div class="min-w-0">
+                        <div class="truncate text-sm text-white/80">{{ entry.reason }}</div>
+                        <div class="mt-0.5 text-xs text-white/40">{{ entry.date }}</div>
+                      </div>
+                      <div
+                        class="flex-none text-sm font-semibold tabular-nums"
+                        [class.text-emerald-300]="entry.amount > 0"
+                        [class.text-red-300]="entry.amount < 0"
+                      >
+                        {{ entry.amount > 0 ? '+' : '' }}{{ entry.amount }}
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            </div><!-- end DKP cards column -->
+
+            <!-- Auctions column -->
+            <div class="self-start rounded-lg border border-white/10 bg-white/5 p-5">
+              <h2 class="text-base font-semibold text-white">Auctions</h2>
+              <p class="mt-0.5 text-xs text-white/40">Open auctions you can bid on.</p>
+              <div class="mt-4 rounded-md border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/50">
+                No open auctions.
+              </div>
+            </div>
+
+          </section>
+        </div>
+      </div>
+    }
+
   </section>
 </div>

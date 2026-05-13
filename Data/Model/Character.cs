@@ -15,6 +15,8 @@ public class Character
 
     public bool IsActive { get; set; }
 
+    public bool IsMain { get; set; }
+
     [Required]
     public string DataSource { get; set; } = string.Empty;
 

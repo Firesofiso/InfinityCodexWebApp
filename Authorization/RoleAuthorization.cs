@@ -14,6 +14,7 @@ public static class AuthorizationPolicies
 {
     public const string RequireAdmin = "RequireAdmin";
     public const string RequireManager = "RequireManager";
+    public const string RequireManagerOrAdmin = "RequireManagerOrAdmin";
     public const string RequireContributor = "RequireContributor";
     public const string RequireReader = "RequireReader";
 
@@ -21,6 +22,7 @@ public static class AuthorizationPolicies
     {
         options.AddPolicy(RequireAdmin, policy => policy.RequireRole(AppRoles.Admin));
         options.AddPolicy(RequireManager, policy => policy.RequireRole(AppRoles.Manager));
+        options.AddPolicy(RequireManagerOrAdmin, policy => policy.RequireRole(AppRoles.Admin, AppRoles.Manager));
         options.AddPolicy(RequireContributor, policy => policy.RequireRole(AppRoles.Contributor));
         options.AddPolicy(RequireReader, policy => policy.RequireRole(AppRoles.Reader));
     }

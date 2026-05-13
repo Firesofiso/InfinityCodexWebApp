@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  DkpTransactionEntry,
   CharacterDynamisClears,
   CharacterMissionProgress,
   CharacterWishlistAssignment,
@@ -11,9 +12,18 @@ import {
   CharacterWorkspaceListItem,
   CharacterWorkspaceService
 } from '../../services/character-workspace.service';
+import { AuthService } from '../../services/auth.service';
 import { CharacterDetailPanelComponent } from './character-detail-panel.component';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+
+export interface DkpHistoryEntry {
+  id: number;
+  date: string;
+  type: string;
+  reason: string;
+  amount: number;
+}
 
 @Component({
   selector: 'app-character-workspace',
@@ -24,7 +34,7 @@ type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 })
 export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   private readonly characterWorkspaceService = inject(CharacterWorkspaceService);
-  private readonly mainCharacterStorageKey = 'infinity.mainCharacterId';
+  private readonly authService = inject(AuthService);
   private readonly previewWishlistItems: CharacterWishlistItem[] = [
     {
       itemId: 900001,
@@ -123,6 +133,20 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   protected readonly dynamisError = signal<string | null>(null);
   protected readonly wishlistError = signal<string | null>(null);
 
+  // DKP-specific state
+  protected readonly isAdmin = computed(() => {
+    const role = this.authService.session()?.role ?? '';
+    return role === 'Admin' || role === 'Manager';
+  });
+  protected readonly dkpHistory = signal<DkpHistoryEntry[]>([]);
+  protected readonly dkpAwardAmount = signal<number | null>(null);
+  protected readonly dkpAwardReason = signal('');
+  protected readonly dkpAwardError = signal<string | null>(null);
+  protected readonly dkpAwardSaving = signal(false);
+
+  // Tab for the secondary info panel (jobs, dynamis, missions)
+  protected readonly secondaryTab = signal<'jobs' | 'dynamis' | 'missions'>('jobs');
+
   protected readonly wishlistFilter = signal('');
 
   protected readonly filteredWishlistItems = computed(() => {
@@ -175,6 +199,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     this.missionError.set(null);
     this.dynamisError.set(null);
     this.wishlistError.set(null);
+    this.dkpAwardError.set(null);
     this.missionSaveState.set('idle');
     this.missionSavedNoticeVisible.set(false);
     this.dynamisSaveState.set('idle');
@@ -194,7 +219,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     }
 
     this.mainCharacterId.set(characterId);
-    this.persistMainCharacterId(characterId);
+    this.characterWorkspaceService.setMainCharacter(characterId).subscribe();
   }
 
   protected updateMission(field: keyof CharacterMissionProgress, value: string | null): void {
@@ -333,6 +358,55 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     return item.sources.map((source) => this.getWishlistSourceLabel(source)).join(' · ');
   }
 
+  protected submitDkpAward(characterId: number): void {
+    const amount = this.dkpAwardAmount();
+    const reason = this.dkpAwardReason().trim();
+
+    if (amount === null || amount === 0) {
+      this.dkpAwardError.set('Amount must be a non-zero number.');
+      return;
+    }
+
+    if (!reason) {
+      this.dkpAwardError.set('A reason is required.');
+      return;
+    }
+
+    this.dkpAwardError.set(null);
+    this.dkpAwardSaving.set(true);
+
+    this.characterWorkspaceService.adjustDkp(characterId, { amount, reason }).subscribe({
+      next: (response) => {
+        this.detail.update((current) => {
+          if (!current || current.character.characterId !== characterId) {
+            return current;
+          }
+
+          return {
+            ...current,
+            character: {
+              ...current.character,
+              dkpTotal: response.newBalance
+            }
+          };
+        });
+
+        this.dkpHistory.update((current) => [
+          this.toHistoryEntry(response.transaction),
+          ...current
+        ]);
+
+        this.dkpAwardAmount.set(null);
+        this.dkpAwardReason.set('');
+        this.dkpAwardSaving.set(false);
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.dkpAwardError.set(error.error?.message ?? 'DKP adjustment could not be saved.');
+        this.dkpAwardSaving.set(false);
+      }
+    });
+  }
+
   protected getNationLabel(nation?: number | null): string {
     switch (nation) {
       case 0:
@@ -382,7 +456,6 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
         if (characters.length === 0) {
           this.mainCharacterId.set(null);
-          this.persistMainCharacterId(null);
           this.selectedCharacterId.set(null);
           this.detail.set(null);
           return;
@@ -390,7 +463,6 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
         const preferredCharacterId = this.resolvePreferredCharacterId(characters, response.mainCharacterId ?? null);
         this.mainCharacterId.set(preferredCharacterId);
-        this.persistMainCharacterId(preferredCharacterId);
         this.selectCharacter(preferredCharacterId);
       },
       error: (error: { error?: { message?: string } }) => {
@@ -424,6 +496,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
         this.missionSaveState.set('idle');
         this.wishlistSaveState.set('idle');
         this.detailError.set(null);
+        this.loadDkpHistory(characterId);
         this.isLoadingDetail.set(false);
       },
       error: (error: { error?: { message?: string } }) => {
@@ -572,6 +645,52 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  private loadDkpHistory(characterId: number): void {
+    this.characterWorkspaceService.getDkpTransactions(characterId, 50).subscribe({
+      next: (response) => {
+        if (this.selectedCharacterId() !== characterId) {
+          return;
+        }
+
+        this.dkpHistory.set(response.entries.map((entry) => this.toHistoryEntry(entry)));
+      },
+      error: () => {
+        if (this.selectedCharacterId() !== characterId) {
+          return;
+        }
+
+        this.dkpHistory.set([]);
+      }
+    });
+  }
+
+  private toHistoryEntry(entry: DkpTransactionEntry): DkpHistoryEntry {
+    const date = new Date(entry.createdAt);
+    const dateLabel = Number.isNaN(date.getTime())
+      ? entry.createdAt
+      : date.toISOString().slice(0, 10);
+
+    return {
+      id: entry.id,
+      date: dateLabel,
+      type: this.getDkpTypeLabel(entry.sourceType, entry.amount),
+      reason: entry.reason,
+      amount: entry.amount
+    };
+  }
+
+  private getDkpTypeLabel(sourceType: string, amount: number): string {
+    if (sourceType === 'bulk_earn_event') {
+      return 'Earned';
+    }
+
+    if (sourceType === 'manual_adjustment') {
+      return amount >= 0 ? 'Adjusted +' : 'Adjusted -';
+    }
+
+    return amount >= 0 ? 'Earned' : 'Spent';
   }
 
   private async commitWishlistSave(): Promise<void> {
@@ -754,43 +873,11 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   private resolvePreferredCharacterId(characters: CharacterWorkspaceListItem[], serverMainCharacterId: number | null): number {
-    const fallbackId = characters[0].characterId;
-
     if (serverMainCharacterId !== null && characters.some((character) => character.characterId === serverMainCharacterId)) {
       return serverMainCharacterId;
     }
 
-    const storedMainCharacterId = this.readStoredMainCharacterId();
-    if (storedMainCharacterId !== null && characters.some((character) => character.characterId === storedMainCharacterId)) {
-      return storedMainCharacterId;
-    }
-
-    return fallbackId;
+    return characters[0].characterId;
   }
 
-  private readStoredMainCharacterId(): number | null {
-    try {
-      const raw = localStorage.getItem(this.mainCharacterStorageKey);
-      if (!raw) {
-        return null;
-      }
-
-      const parsed = Number(raw);
-      return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private persistMainCharacterId(characterId: number | null): void {
-    try {
-      if (characterId === null) {
-        localStorage.removeItem(this.mainCharacterStorageKey);
-      } else {
-        localStorage.setItem(this.mainCharacterStorageKey, String(characterId));
-      }
-    } catch {
-      // Local storage may be unavailable in strict browser contexts.
-    }
-  }
 }

@@ -10,6 +10,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<Character> Characters => Set<Character>();
     public DbSet<CharacterItem> CharacterItems => Set<CharacterItem>();
     public DbSet<CharacterItemNeed> CharacterItemNeeds => Set<CharacterItemNeed>();
+    public DbSet<DkpTransaction> DkpTransactions => Set<DkpTransaction>();
+    public DbSet<DkpEarnEvent> DkpEarnEvents => Set<DkpEarnEvent>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemArmorStats> ItemArmorStats => Set<ItemArmorStats>();
     public DbSet<ItemWeaponStats> ItemWeaponStats => Set<ItemWeaponStats>();
@@ -27,6 +29,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             entity.HasIndex(user => user.DiscordId)
                 .IsUnique();
+            entity.Property(user => user.DkpBalance)
+                .HasDefaultValue(0);
         });
 
         modelBuilder.Entity<UserPreferredJob>(entity =>
@@ -113,6 +117,38 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
                 .WithMany()
                 .HasForeignKey(contentSource => contentSource.ContentGroupId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DkpEarnEvent>(entity =>
+        {
+            entity.HasIndex(dkpEarnEvent => dkpEarnEvent.OccurredAt);
+            entity.HasIndex(dkpEarnEvent => dkpEarnEvent.CreatedByUserId);
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(dkpEarnEvent => dkpEarnEvent.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DkpTransaction>(entity =>
+        {
+            entity.HasIndex(transaction => new { transaction.UserId, transaction.CreatedAt });
+            entity.HasIndex(transaction => new { transaction.EarnEventId, transaction.CreatedAt });
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(transaction => transaction.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(transaction => transaction.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Character>()
+                .WithMany()
+                .HasForeignKey(transaction => transaction.CharacterId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne<DkpEarnEvent>()
+                .WithMany()
+                .HasForeignKey(transaction => transaction.EarnEventId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

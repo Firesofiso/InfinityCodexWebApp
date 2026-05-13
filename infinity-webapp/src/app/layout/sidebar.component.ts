@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { BookOpenIcon, HouseIcon, LucideAngularModule, OrbitIcon, SettingsIcon, SwordsIcon } from 'lucide-angular';
+import { BookOpenIcon, HouseIcon, LucideAngularModule, OrbitIcon, SettingsIcon, SwordsIcon, UsersIcon } from 'lucide-angular';
 
 @Component({
   selector: 'app-sidebar',
@@ -15,4 +15,5 @@ export class SidebarComponent {
     readonly Orbit = OrbitIcon;
     readonly Swords = SwordsIcon;
     readonly BookOpen = BookOpenIcon;
+    readonly Users = UsersIcon;
 }

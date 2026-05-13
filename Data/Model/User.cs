@@ -21,6 +21,8 @@ public class User
 
     public bool IsRegistrationComplete { get; set; }
 
+    public int DkpBalance { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? RegistrationCompletedAt { get; set; }
