@@ -6,7 +6,7 @@
         <button
           *ngIf="selectedCharacterId !== null && !isMainCharacter(selectedCharacterId)"
           type="button"
-          class="main-character-action"
+          class="main-character-action cursor-pointer"
           (click)="setSelectedAsMainCharacter()"
         >
           Set as main
@@ -21,7 +21,7 @@
           *ngFor="let character of getDisplayCharacters()"
           type="button"
           (click)="selectCharacter(character.characterId)"
-          class="character-portrait-tab character-portrait-tab--compact"
+          class="character-portrait-tab character-portrait-tab--compact cursor-pointer"
           [class.is-active]="isActive(character.characterId)"
           [attr.title]="character.name + ' · ' + getDetailText(character)"
         >

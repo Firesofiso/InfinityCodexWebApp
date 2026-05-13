@@ -9,7 +9,7 @@
       <div class="flex flex-wrap gap-2">
         <button
           type="button"
-          class="rounded-sm border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+          class="rounded-sm border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           (click)="startCreate()"
           [disabled]="!canEdit()"
         >
@@ -67,7 +67,7 @@
         <button
           *ngFor="let item of filteredItems(); trackBy: trackByItemId"
           type="button"
-          class="catalog-card w-full rounded-md border px-4 py-3 text-left transition"
+          class="catalog-card w-full rounded-md border px-4 py-3 text-left transition cursor-pointer"
           [class.border-cyan-300/40]="selectedItemId() === item.id"
           [class.bg-cyan-500/10]="selectedItemId() === item.id"
           [class.border-white/10]="selectedItemId() !== item.id"
@@ -363,7 +363,7 @@
             </div>
             <button
               type="button"
-              class="rounded-sm border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-xs font-medium text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+              class="rounded-sm border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-xs font-medium text-cyan-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               (click)="addModifier()"
               [disabled]="!canEdit()"
             >
@@ -415,7 +415,7 @@
               <div class="flex items-end">
                 <button
                   type="button"
-                  class="rounded-sm border border-red-300/30 bg-red-400/10 px-3 py-2 text-xs font-medium text-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="rounded-sm border border-red-300/30 bg-red-400/10 px-3 py-2 text-xs font-medium text-red-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   (click)="removeModifier(modifierIndex)"
                   [disabled]="!canEdit()"
                 >
@@ -430,7 +430,7 @@
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <button
           type="button"
-          class="rounded-sm border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+          class="rounded-sm border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           (click)="saveItem()"
           [disabled]="!canEdit() || editorState() === 'saving'"
         >
@@ -440,7 +440,7 @@
         <button
           *ngIf="editorModel().id !== null"
           type="button"
-          class="rounded-sm border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-medium text-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+          class="rounded-sm border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-medium text-amber-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           (click)="toggleArchived()"
           [disabled]="!canEdit() || editorState() === 'saving'"
         >

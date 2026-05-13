@@ -78,59 +78,57 @@
                   <div class="mt-1 text-5xl font-bold tabular-nums text-amber-300">
                     {{ currentDetail.character.dkpTotal ?? 0 }}
                   </div>
-                  <div class="mt-1 text-xs text-white/40">
-                    {{ currentDetail.character.name }}
-                  </div>
                 </div>
 
                 @if (canManageDkp()) {
                   <!-- Admin: award / deduct form -->
-                  <div class="min-w-0 flex-1 max-w-xs">
-                    <fieldset class="rounded-md border border-white/10 bg-black/20 p-3 space-y-3">
+                  <div class="min-w-0 flex-1 max-w-2xl">
+                    <fieldset class="rounded-md border border-white/10 bg-black/20 p-2.5 space-y-1.5">
                       <legend class="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
                         Award / Deduct
                       </legend>
 
-                      <label class="grid gap-1 text-sm text-white/70">
-                        <span class="text-xs text-white/50">Amount <span class="text-white/30">(negative to deduct)</span></span>
-                        <input
-                          type="number"
-                          [ngModel]="dkpAwardAmount()"
-                          (ngModelChange)="dkpAwardAmount.set($event)"
-                          class="w-full rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-amber-300/50"
-                          placeholder="e.g. 50 or -25"
-                        />
-                      </label>
+                      <div class="grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-end gap-2">
+                        <label class="grid gap-1 text-sm text-white/70">
+                          <span class="text-[11px] text-white/50">Amount</span>
+                          <input
+                            type="number"
+                            [ngModel]="dkpAwardAmount()"
+                            (ngModelChange)="dkpAwardAmount.set($event)"
+                            class="h-9 w-full rounded-sm border border-white/10 bg-black/20 px-2 text-sm text-white outline-none transition focus:border-amber-300/50"
+                          />
+                        </label>
 
-                      <label class="grid gap-1 text-sm text-white/70">
-                        <span class="text-xs text-white/50">Reason</span>
-                        <input
-                          type="text"
-                          [ngModel]="dkpAwardReason()"
-                          (ngModelChange)="dkpAwardReason.set($event)"
-                          class="w-full rounded-sm border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-amber-300/50"
-                          placeholder="e.g. Nyzul Isle attendance"
-                        />
-                      </label>
+                        <label class="grid gap-1 text-sm text-white/70">
+                          <span class="text-[11px] text-white/50">Reason</span>
+                          <input
+                            type="text"
+                            [ngModel]="dkpAwardReason()"
+                            (ngModelChange)="dkpAwardReason.set($event)"
+                            class="h-9 w-full rounded-sm border border-white/10 bg-black/20 px-2 text-sm text-white outline-none transition focus:border-amber-300/50"
+                            placeholder="Attendance, correction, etc."
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          (click)="submitDkpAward(currentDetail.character.characterId)"
+                          [disabled]="dkpAwardSaving()"
+                          class="h-9 rounded-sm border border-amber-300/30 bg-amber-500/10 px-3 text-sm font-semibold text-amber-100 whitespace-nowrap transition cursor-pointer hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          @if (dkpAwardSaving()) {
+                            Saving...
+                          } @else {
+                            Apply
+                          }
+                        </button>
+                      </div>
 
                       @if (dkpAwardError()) {
-                        <div class="rounded-sm border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                        <div class="rounded-sm border border-red-400/30 bg-red-500/10 px-2.5 py-1.5 text-xs text-red-100">
                           {{ dkpAwardError() }}
                         </div>
                       }
-
-                      <button
-                        type="button"
-                        (click)="submitDkpAward(currentDetail.character.characterId)"
-                        [disabled]="dkpAwardSaving()"
-                        class="w-full rounded-sm border border-amber-300/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        @if (dkpAwardSaving()) {
-                          Saving...
-                        } @else {
-                          Apply to {{ currentDetail.character.name }}
-                        }
-                      </button>
                     </fieldset>
 
                   </div>

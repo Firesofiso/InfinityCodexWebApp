@@ -22,7 +22,7 @@
         <tr>
           <th
             *ngFor="let col of columns; trackBy: trackByIndex"
-            class="px-4 py-3 text-xs font-medium uppercase tracking-[0.15em] text-white/40"
+            class="px-4 py-3 text-xs font-medium uppercase tracking-[0.15em] text-white/40 cursor-pointer"
             [ngClass]="col.headerClass ?? 'text-left'"
             [class.cursor-pointer]="col.sortable"
             [class.hover:text-white]="col.sortable"
@@ -86,7 +86,7 @@
                 type="button"
                 [disabled]="isActionDisabled(action, row)"
                 (click)="action.onClick(row)"
-                class="rounded-sm border px-2 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-40"
+                class="rounded-sm border px-2 py-1 text-xs transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                 [class.border-white/10]="action.variant !== 'danger'"
                 [class.bg-white/5]="action.variant !== 'danger'"
                 [class.text-white/70]="action.variant !== 'danger'"

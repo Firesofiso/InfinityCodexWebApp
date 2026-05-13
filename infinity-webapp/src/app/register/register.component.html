@@ -8,7 +8,7 @@
                 <p class="text-white text-center text-lg mb-6">Loading your registration details...</p>
                 <button
                     type="button"
-                    class="w-full px-6 py-2.5 bg-white/15 text-white font-semibold rounded-lg border border-white/20 hover:bg-white/25 transition-all duration-200"
+                    class="w-full px-6 py-2.5 bg-white/15 text-white font-semibold rounded-lg border border-white/20 hover:bg-white/25 transition-all duration-200 cursor-pointer"
                 >
                     Please wait
                 </button>
@@ -39,7 +39,7 @@
                                 <button
                                     type="button"
                                     (click)="togglePreferredJob(job.code)"
-                                    class="inline-flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition-all"
+                                    class="inline-flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition-all cursor-pointer"
                                     [class.border-indigo-200/70]="isPreferredJobSelected(job.code)"
                                     [class.bg-indigo-500/25]="isPreferredJobSelected(job.code)"
                                     [class.text-white]="isPreferredJobSelected(job.code)"
@@ -61,7 +61,7 @@
                                 <button
                                     type="button"
                                     (click)="togglePreferredJob(job.code)"
-                                    class="inline-flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition-all"
+                                    class="inline-flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition-all cursor-pointer"
                                     [class.border-indigo-200/70]="isPreferredJobSelected(job.code)"
                                     [class.bg-indigo-500/25]="isPreferredJobSelected(job.code)"
                                     [class.text-white]="isPreferredJobSelected(job.code)"
@@ -100,7 +100,7 @@
                                     <button
                                         type="button"
                                         (click)="removeCharacter(characterName)"
-                                        class="text-indigo-100/80 hover:text-white"
+                                        class="text-indigo-100/80 hover:text-white cursor-pointer"
                                     >
                                         x
                                     </button>
@@ -146,7 +146,7 @@
                                         type="button"
                                         [disabled]="!canAddCharacter(result.name)"
                                         (click)="addCharacter(result.name)"
-                                        class="rounded-md px-2 py-1 text-xs font-semibold bg-indigo-500/80 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        class="rounded-md px-2 py-1 text-xs font-semibold bg-indigo-500/80 hover:bg-indigo-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Add
                                     </button>
@@ -163,7 +163,7 @@
                 <button
                     type="submit"
                     [disabled]="submitting()"
-                    class="w-full px-8 py-3 bg-linear-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:opacity-70"
+                    class="w-full px-8 py-3 bg-linear-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-300 cursor-pointer disabled:opacity-70"
                 >
                     {{ submitting() ? 'Saving...' : 'Complete Registration' }}
                 </button>
