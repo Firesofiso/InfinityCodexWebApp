@@ -15,6 +15,7 @@ Thumbs.db
 
 # Visual Studio Code
 .vscode/
+*.code-workspace
 
 # Rider
 .idea/
@@ -76,3 +77,4 @@ coverage/
 .history/
 ImportDocuments
 Migrations/sql
+InfinityCodexWebApp.csproj.lscache

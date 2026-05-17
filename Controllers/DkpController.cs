@@ -104,7 +104,7 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
             return Forbid();
         }
 
-        if (!await CanManageDkpAsync(actor, cancellationToken))
+        if (!CanManageDkp(actor))
         {
             return Forbid();
         }
@@ -217,7 +217,7 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
             return Forbid();
         }
 
-        if (!await CanManageDkpAsync(actor, cancellationToken))
+        if (!CanManageDkp(actor))
         {
             return Forbid();
         }
@@ -319,24 +319,13 @@ public sealed class DkpController(ApplicationDbContext dbContext) : ControllerBa
 
     private bool HasDkpWriteAccess(User user)
     {
-        return string.Equals(user.Role, AppRoles.Admin, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(user.Role, AppRoles.Manager, StringComparison.OrdinalIgnoreCase);
+        return user.IsActive
+            && RolePermissions.RoleHasPermission(user.Role, AppPermissions.ManageDkp);
     }
 
-    private async Task<bool> CanManageDkpAsync(User user, CancellationToken cancellationToken)
+    private bool CanManageDkp(User user)
     {
-        if (HasDkpWriteAccess(user))
-        {
-            return true;
-        }
-
-        bool hasAnyManagerOrAdmin = await dbContext.Users.AnyAsync(
-            entity => entity.IsActive
-                && (entity.Role == AppRoles.Admin || entity.Role == AppRoles.Manager),
-            cancellationToken);
-
-        // Bootstrap mode: if no manager/admin accounts exist yet, allow active users to use DKP tools.
-        return !hasAnyManagerOrAdmin;
+        return HasDkpWriteAccess(user);
     }
 
     private async Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken)

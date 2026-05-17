@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using InfinityCodexWebApp.Authorization;
 using InfinityCodexWebApp.Data;
 using InfinityCodexWebApp.Integrations.Horizon;
 using Microsoft.AspNetCore.Authorization;
@@ -121,15 +122,15 @@ public sealed class CharactersController(
         }
 
         Character? character = await dbContext.Characters
-            .FirstOrDefaultAsync(c => c.Id == characterId && c.OwnerUserId == user.Id && c.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(c => c.Id == characterId && c.IsActive, cancellationToken);
 
-        if (character is null)
+        if (character is null || !CanAccessCharacter(user, character))
         {
             return NotFound(new { message = "Character was not found." });
         }
 
         await dbContext.Characters
-            .Where(c => c.OwnerUserId == user.Id && c.IsMain)
+            .Where(c => c.OwnerUserId == character.OwnerUserId && c.IsMain)
             .ExecuteUpdateAsync(setter => setter.SetProperty(c => c.IsMain, false), cancellationToken);
 
         character.IsMain = true;
@@ -153,15 +154,15 @@ public sealed class CharactersController(
         }
 
         var character = await dbContext.Characters
-            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.OwnerUserId == user.Id && entity.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.IsActive, cancellationToken);
 
-        if (character is null)
+        if (character is null || !CanAccessCharacter(user, character))
         {
             return NotFound(new { message = "Character was not found." });
         }
 
         var ownedCharacterIds = await dbContext.Characters
-            .Where(entity => entity.OwnerUserId == user.Id && entity.IsActive)
+            .Where(entity => entity.OwnerUserId == character.OwnerUserId && entity.IsActive)
             .Select(entity => entity.Id)
             .ToListAsync(cancellationToken);
 
@@ -320,9 +321,9 @@ public sealed class CharactersController(
         }
 
         var character = await dbContext.Characters
-            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.OwnerUserId == user.Id && entity.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.IsActive, cancellationToken);
 
-        if (character is null)
+        if (character is null || !CanAccessCharacter(user, character))
         {
             return NotFound(new { message = "Character was not found." });
         }
@@ -384,9 +385,9 @@ public sealed class CharactersController(
         }
 
         var character = await dbContext.Characters
-            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.OwnerUserId == user.Id && entity.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.IsActive, cancellationToken);
 
-        if (character is null)
+        if (character is null || !CanAccessCharacter(user, character))
         {
             return NotFound(new { message = "Character was not found." });
         }
@@ -437,15 +438,15 @@ public sealed class CharactersController(
         }
 
         var character = await dbContext.Characters
-            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.OwnerUserId == user.Id && entity.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.IsActive, cancellationToken);
 
-        if (character is null)
+        if (character is null || !CanAccessCharacter(user, character))
         {
             return NotFound(new { message = "Character was not found." });
         }
 
         var ownedCharacterIds = await dbContext.Characters
-            .Where(entity => entity.OwnerUserId == user.Id && entity.IsActive)
+            .Where(entity => entity.OwnerUserId == character.OwnerUserId && entity.IsActive)
             .Select(entity => entity.Id)
             .ToListAsync(cancellationToken);
 
@@ -550,9 +551,9 @@ public sealed class CharactersController(
         }
 
         var character = await dbContext.Characters
-            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.OwnerUserId == user.Id && entity.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.IsActive, cancellationToken);
 
-        if (character is null)
+        if (character is null || !CanAccessCharacter(user, character))
         {
             return NotFound(new { message = "Character was not found." });
         }
@@ -580,6 +581,17 @@ public sealed class CharactersController(
         }
 
         return await dbContext.Users.FirstOrDefaultAsync(entity => entity.DiscordId == discordId, cancellationToken);
+    }
+
+    private static bool CanAccessCharacter(User user, Character character)
+    {
+        if (character.OwnerUserId == user.Id)
+        {
+            return true;
+        }
+
+        return user.IsActive
+            && RolePermissions.RoleHasPermission(user.Role, AppPermissions.ManageUsers);
     }
 
     private static string? NormalizeMissionValue(string? value)

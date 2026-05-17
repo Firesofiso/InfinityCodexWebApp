@@ -175,11 +175,14 @@ public class AuthController : ControllerBase
             return RedirectWithAuthError("registration_not_allowed", "You must be in the Linkshell Discord server to register.", returnUrl);
         }
 
+        var hasExistingUsers = await _dbContext.Users.AnyAsync();
+        var defaultRole = hasExistingUsers ? AppRoles.Reader : AppRoles.Admin;
+
         var pendingUser = new User
         {
             DiscordId = userProfile.DiscordId,
             DisplayName = userProfile.Username,
-            Role = AppRoles.Reader,
+            Role = defaultRole,
             IsActive = true,
             IsRegistrationComplete = false,
             CreatedAt = DateTime.UtcNow
@@ -251,6 +254,12 @@ public class AuthController : ControllerBase
 
         var registrationStatus = user.FindFirstValue(RegistrationStatusClaimType) ?? RegistrationStatusPending;
         var role = user.FindFirstValue(ClaimTypes.Role);
+        var permissions = user.Claims
+            .Where(claim => claim.Type == AppClaimTypes.Permission)
+            .Select(claim => claim.Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value)
+            .ToArray();
 
         return Ok(new
         {
@@ -260,6 +269,7 @@ public class AuthController : ControllerBase
             IsRegistrationComplete = string.Equals(registrationStatus, RegistrationStatusComplete, StringComparison.OrdinalIgnoreCase),
             CanAccessApp = string.Equals(registrationStatus, RegistrationStatusComplete, StringComparison.OrdinalIgnoreCase),
             Role = role,
+            Permissions = permissions,
             Claims = user.Claims.Select(claim => new
             {
                 claim.Type,
@@ -519,6 +529,11 @@ public class AuthController : ControllerBase
         if (!pendingRegistration && !string.IsNullOrWhiteSpace(user.Role))
         {
             claims.Add(new Claim(ClaimTypes.Role, user.Role));
+
+            foreach (var permission in RolePermissions.GetPermissionsForRole(user.Role))
+            {
+                claims.Add(new Claim(AppClaimTypes.Permission, permission));
+            }
         }
 
         return claims;

@@ -10,7 +10,7 @@
       aria-label="Characters"
       class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer text-white/80"
     >
-      <span class="text-xs font-semibold"><lucide-angular [img]="Swords" class="my-icon" /></span>
+      <span class="text-xs font-semibold"><lucide-angular [img]="User" class="my-icon" /></span>
     </a>
     <a
       routerLink="/app/roster"
@@ -20,6 +20,16 @@
     >
       <span class="text-xs font-semibold"><lucide-angular [img]="Users" class="my-icon" /></span>
     </a>
+    @if (canManageRoles()) {
+      <a
+        routerLink="/app/access"
+        routerLinkActive="bg-cyan-400/20 text-cyan-50"
+        aria-label="Roles and Permissions"
+        class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer text-white/80"
+      >
+        <span class="text-xs font-semibold"><lucide-angular [img]="Shield" class="my-icon" /></span>
+      </a>
+    }
     <!-- <a
       routerLink="/app/catalog"
       routerLinkActive="bg-cyan-400/20 text-cyan-50"
@@ -38,9 +48,16 @@
     </a> -->
   </nav>
 
-  <div class="mt-auto flex flex-col gap-3">
-    <button type="button" aria-label="Settings" class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer text-white/80">
-      <span class="text-xs font-semibold"><lucide-angular [img]="Settings" class="my-icon" /></span>
+  <div class="mt-auto">
+    <button
+      type="button"
+      (click)="logout()"
+      [disabled]="loggingOut()"
+      aria-label="Log out"
+      class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 transition grid place-items-center cursor-pointer text-white/80 disabled:cursor-not-allowed disabled:opacity-70"
+    >
+      <span class="text-xs font-semibold"><lucide-angular [img]="LogOut" class="my-icon" /></span>
     </button>
   </div>
+
 </aside>

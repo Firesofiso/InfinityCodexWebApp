@@ -10,6 +10,7 @@ export interface SessionResponse {
     isRegistrationComplete?: boolean;
     canAccessApp?: boolean;
     role?: string | null;
+    permissions?: string[];
     claims?: Array<{ type: string; value: string }>;
 }
 
@@ -25,6 +26,24 @@ export type AuthState = 'checking' | 'authenticated' | 'pending-registration' | 
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+        public hasPermission(permission: string): boolean {
+            const session = this.sessionSignal();
+            const permissions = session?.permissions ?? [];
+            return permissions.some((entry) => entry.toLowerCase() === permission.toLowerCase());
+        }
+
+        public canManageDkp(): boolean {
+            return this.hasPermission('dkp.manage');
+        }
+
+        public canManageUsers(): boolean {
+            return this.hasPermission('users.manage');
+        }
+
+        public canManageRoles(): boolean {
+            return this.hasPermission('roles.manage');
+        }
+
     // Use a relative API path so Angular dev can proxy to the local ASP.NET app and production can stay same-origin.
     private readonly API_URL = '/auth';
     private http: HttpClient = inject(HttpClient);

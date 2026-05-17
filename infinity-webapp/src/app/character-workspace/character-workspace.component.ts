@@ -135,8 +135,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
 
   // DKP-specific state
   protected readonly canManageDkp = computed(() => {
-    const role = this.authService.session()?.role ?? '';
-    return role === 'Admin' || role === 'Manager' || role === 'Reader' || role === 'Contributor';
+    return this.authService.canManageDkp();
   });
   protected readonly dkpHistory = signal<DkpHistoryEntry[]>([]);
   protected readonly dkpAwardAmount = signal<number | null>(null);

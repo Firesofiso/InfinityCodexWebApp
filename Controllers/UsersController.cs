@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using InfinityCodexWebApp.Authorization;
 using InfinityCodexWebApp.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,96 @@ namespace InfinityCodexWebApp.Controllers;
 public sealed class UsersController(
     ApplicationDbContext dbContext) : ControllerBase
 {
+    [HttpGet("access")]
+    public async Task<IActionResult> GetAccessOverview(CancellationToken cancellationToken)
+    {
+        User? currentUser = await GetCurrentUserAsync(cancellationToken);
+        if (currentUser is null)
+        {
+            return Unauthorized(new { message = "User session could not be resolved." });
+        }
+
+        if (!currentUser.IsActive)
+        {
+            return Forbid();
+        }
+
+        if (!CanManageRoles(currentUser))
+        {
+            return Forbid();
+        }
+
+        List<AccessUserSummaryResponse> users = await dbContext.Users
+            .OrderBy(user => user.DisplayName)
+            .Select(user => new AccessUserSummaryResponse(
+                user.Id,
+                user.DisplayName,
+                user.DiscordId,
+                user.Role,
+                user.IsActive,
+                user.IsRegistrationComplete))
+            .ToListAsync(cancellationToken);
+
+        IReadOnlyList<AccessRoleDefinitionResponse> roles = AppRoles.All
+            .Select(role => new AccessRoleDefinitionResponse(
+                role,
+                RolePermissions.GetPermissionsForRole(role)))
+            .ToList();
+
+        return Ok(new AccessOverviewResponse(
+            AppPermissions.All,
+            roles,
+            users));
+    }
+
+    [HttpPut("{userId:int}/role")]
+    public async Task<IActionResult> UpdateUserRole(int userId, [FromBody] UpdateUserRoleRequest? request, CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest(new { message = "Role payload is required." });
+        }
+
+        string requestedRole = (request.Role ?? string.Empty).Trim();
+        if (!RolePermissions.IsValidRole(requestedRole))
+        {
+            return BadRequest(new { message = "Role is invalid." });
+        }
+
+        User? currentUser = await GetCurrentUserAsync(cancellationToken);
+        if (currentUser is null)
+        {
+            return Unauthorized(new { message = "User session could not be resolved." });
+        }
+
+        if (!currentUser.IsActive)
+        {
+            return Forbid();
+        }
+
+        if (!CanManageRoles(currentUser))
+        {
+            return Forbid();
+        }
+
+        User? targetUser = await dbContext.Users
+            .FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
+
+        if (targetUser is null)
+        {
+            return NotFound(new { message = "User was not found." });
+        }
+
+        targetUser.Role = requestedRole;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new UpdateUserRoleResponse(
+            targetUser.Id,
+            targetUser.DisplayName,
+            targetUser.Role,
+            RolePermissions.GetPermissionsForRole(targetUser.Role)));
+    }
+
     [HttpGet("roster")]
     public async Task<IActionResult> GetRoster(CancellationToken cancellationToken)
     {
@@ -163,6 +254,11 @@ public sealed class UsersController(
         return await dbContext.Users.FirstOrDefaultAsync(u => u.DiscordId == discordId, cancellationToken);
     }
 
+    private static bool CanManageRoles(User user)
+    {
+        return user.IsActive && RolePermissions.RoleHasPermission(user.Role, AppPermissions.ManageRoles);
+    }
+
     public sealed record RosterResponse(IReadOnlyList<RosterMemberResponse> Members);
 
     public sealed record RosterMemberResponse(
@@ -183,4 +279,32 @@ public sealed class UsersController(
         bool DynamisIcelands,
         bool DynamisDreamlands,
         bool DynamisTavnazia);
+
+    public sealed record AccessOverviewResponse(
+        IReadOnlyList<string> Permissions,
+        IReadOnlyList<AccessRoleDefinitionResponse> Roles,
+        IReadOnlyList<AccessUserSummaryResponse> Users);
+
+    public sealed record AccessRoleDefinitionResponse(
+        string Role,
+        IReadOnlyList<string> Permissions);
+
+    public sealed record AccessUserSummaryResponse(
+        int Id,
+        string DisplayName,
+        string DiscordId,
+        string Role,
+        bool IsActive,
+        bool IsRegistrationComplete);
+
+    public sealed class UpdateUserRoleRequest
+    {
+        public string? Role { get; set; }
+    }
+
+    public sealed record UpdateUserRoleResponse(
+        int Id,
+        string DisplayName,
+        string Role,
+        IReadOnlyList<string> Permissions);
 }

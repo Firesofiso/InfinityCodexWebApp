@@ -31,8 +31,7 @@ export class RosterComponent implements OnInit {
   protected readonly bulkEarnNotice = signal<string | null>(null);
 
   protected readonly canManageDkp = computed(() => {
-    const role = this.authService.session()?.role ?? '';
-    return role === 'Admin' || role === 'Manager' || role === 'Reader' || role === 'Contributor';
+    return this.authService.canManageDkp();
   });
 
   protected readonly filteredBulkEarnRows = computed(() => {
