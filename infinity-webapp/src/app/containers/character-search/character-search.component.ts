@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subscription, catchError, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
-import { CharacterSearchResult, CharacterSearchService } from '../../services/character-search.service';
+import { CharacterSearchResult, CharacterSearchService } from '@services/character-search.service';
 
 @Component({
   selector: 'app-character-search',

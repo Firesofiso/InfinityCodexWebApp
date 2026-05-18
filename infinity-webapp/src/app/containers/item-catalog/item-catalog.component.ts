@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from '@services/auth.service';
 import {
   ContentSourceReference,
   CatalogItemDetail,
@@ -16,7 +16,7 @@ import {
   ContentSourceOption,
   ItemCatalogService,
   UpsertCatalogItemRequest
-} from '../../services/item-catalog.service';
+} from '@services/item-catalog.service';
 
 type EditorState = 'idle' | 'saving' | 'saved' | 'error';
 

@@ -11,8 +11,8 @@ import {
   CharacterWorkspaceDetailResponse,
   CharacterWorkspaceListItem,
   CharacterWorkspaceService
-} from '../../services/character-workspace.service';
-import { AuthService } from '../../services/auth.service';
+} from '@services/character-workspace.service';
+import { AuthService } from '@services/auth.service';
 import { CharacterDetailPanelComponent } from './character-detail-panel.component';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';

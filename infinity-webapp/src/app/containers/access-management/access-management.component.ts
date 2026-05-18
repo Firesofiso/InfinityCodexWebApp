@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AuthService } from '../../services/auth.service';
-import { AccessOverviewResponse, AccessRoleDefinition, AccessUserSummary, UserService } from '../../services/user.service';
+import { AuthService } from '@services/auth.service';
+import { AccessOverviewResponse, AccessRoleDefinition, AccessUserSummary, UserService } from '@services/user.service';
 
 @Component({
   selector: 'app-access-management',

@@ -8,7 +8,7 @@ import {
   CharacterWorkspaceDetailResponse,
   CharacterWorkspaceListItem,
   HorizonJobLevel
-} from '../../services/character-workspace.service';
+} from '@services/character-workspace.service';
 import {
   BASTOK_MISSIONS,
   CHAINS_OF_PROMATHIA_MISSIONS,

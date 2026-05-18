@@ -2,13 +2,13 @@ import { Routes } from '@angular/router';
 import { HomeComponent } from './home/home.component';
 import { MainLayoutComponent } from './layout/main-layout.component';
 import { authGuard } from './guards/auth.guard';
-import { DashboardComponent } from './containers/dashboard/dashboard.component';
-import { RegisterComponent } from './register/register.component';
+import { DashboardComponent } from '@containers/dashboard/dashboard.component';
+import { RegisterComponent } from '@containers/register/register.component';
 import { registrationGuard } from './guards/registration.guard';
-import { CharacterWorkspaceComponent } from './character-workspace/character-workspace.component';
-import { ItemCatalogComponent } from './item-catalog/item-catalog.component';
-import { RosterComponent } from './roster/roster.component';
-import { AccessManagementComponent } from './access-management/access-management.component';
+import { CharacterWorkspaceComponent } from '@containers/character-workspace/character-workspace.component';
+import { ItemCatalogComponent } from '@containers/item-catalog/item-catalog.component';
+import { RosterComponent } from '@containers/roster/roster.component';
+import { AccessManagementComponent } from '@containers/access-management/access-management.component';
 
 export const routes: Routes = [
     { path: '', component: HomeComponent },

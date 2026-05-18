@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ListAction, ListColumn, MasterListComponent } from '../components/master-list/master-list.component';
-import { RosterMember, RosterRow, UserService } from '../../services/user.service';
-import { CharacterWorkspaceService } from '../../services/character-workspace.service';
-import { AuthService } from '../../services/auth.service';
+import { ListAction, ListColumn, MasterListComponent } from '../../components/master-list/master-list.component';
+import { RosterMember, RosterRow, UserService } from '@services/user.service';
+import { CharacterWorkspaceService } from '@services/character-workspace.service';
+import { AuthService } from '@services/auth.service';
 
 @Component({
   selector: 'app-roster',

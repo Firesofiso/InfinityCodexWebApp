@@ -2,8 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService, RegistrationContextResponse } from '../../services/auth.service';
-import { CharacterSearchResult, CharacterSearchService } from '../../services/character-search.service';
+import { AuthService, RegistrationContextResponse } from '@services/auth.service';
+import { CharacterSearchResult, CharacterSearchService } from '@services/character-search.service';
 
 interface JobOption {
     code: string;
