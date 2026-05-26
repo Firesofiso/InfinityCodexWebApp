@@ -58,7 +58,7 @@ export class RosterComponent implements OnInit {
       key: 'characterName',
       header: 'Character',
       sortable: true,
-      routerLink: (row) => ['/app/roster', String(row.characterId)]
+      routerLink: (row) => ['/app/characters', String(row.memberId)]
     },
     {
       key: 'dkpTotal',
@@ -192,6 +192,7 @@ export class RosterComponent implements OnInit {
   private toRow(member: RosterMember): RosterRow {
     const access = member.contentAccess;
     return {
+      memberId: member.memberId,
       characterId: member.characterId,
       characterName: member.characterName,
       discordAlias: member.discordAlias,

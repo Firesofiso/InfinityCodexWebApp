@@ -48,7 +48,19 @@
     </a> -->
   </nav>
 
-  <div class="mt-auto">
+  <div class="mt-auto flex flex-col gap-2">
+    @if (isImpersonating()) {
+      <button
+        type="button"
+        (click)="stopImpersonation()"
+        [disabled]="stoppingImpersonation()"
+        aria-label="Stop impersonation"
+        class="w-12 h-12 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 transition grid place-items-center cursor-pointer text-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        <span class="text-[10px] font-semibold leading-tight text-center px-1">{{ stoppingImpersonation() ? '...' : 'STOP' }}</span>
+      </button>
+    }
+
     <button
       type="button"
       (click)="logout()"

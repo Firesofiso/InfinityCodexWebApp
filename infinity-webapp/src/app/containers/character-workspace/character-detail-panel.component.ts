@@ -53,6 +53,8 @@ export class CharacterDetailPanelComponent implements OnChanges, OnDestroy {
   };
   @Input() public dynamisSaveState: MissionPanelSaveState = 'idle';
   @Input() public dynamisError: string | null = null;
+  @Input() public isOwnProfile = true;
+  @Input() public canEdit = true;
 
   public readonly dynamisCityZones: { field: keyof CharacterDynamisClears; label: string }[] = [
     { field: 'dynamisSandOria', label: "San d'Oria" },

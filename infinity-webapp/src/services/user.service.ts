@@ -28,6 +28,7 @@ export interface RosterResponse {
 }
 
 export interface RosterRow {
+  memberId: number;
   characterId: number;
   characterName: string;
   discordAlias: string;
@@ -65,6 +66,40 @@ export interface UpdateUserRoleResponse {
   permissions: string[];
 }
 
+export interface GenerateFakePlayersRequest {
+  count: number;
+  minCharactersPerUser: number;
+  maxCharactersPerUser: number;
+  ensureAllRolesRepresented: boolean;
+}
+
+export interface FakeUserSummary {
+  id: number;
+  displayName: string;
+  discordId: string;
+  role: string;
+  characterCount: number;
+}
+
+export interface GenerateFakePlayersResponse {
+  usersCreated: number;
+  charactersCreated: number;
+  users: FakeUserSummary[];
+  roleBreakdown: Record<string, number>;
+}
+
+export interface StartImpersonationResponse {
+  userId: number;
+  displayName: string;
+  role: string;
+}
+
+export interface StopImpersonationResponse {
+  userId: number;
+  displayName: string;
+  role: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class UserService {
   private readonly http = inject(HttpClient);
@@ -79,5 +114,17 @@ export class UserService {
 
   updateUserRole(userId: number, role: string): Observable<UpdateUserRoleResponse> {
     return this.http.put<UpdateUserRoleResponse>(`/api/users/${userId}/role`, { role });
+  }
+
+  generateFakePlayers(payload: GenerateFakePlayersRequest): Observable<GenerateFakePlayersResponse> {
+    return this.http.post<GenerateFakePlayersResponse>('/api/users/dev/fake-players', payload);
+  }
+
+  startImpersonation(userId: number): Observable<StartImpersonationResponse> {
+    return this.http.post<StartImpersonationResponse>('/api/users/impersonation/start', { userId });
+  }
+
+  stopImpersonation(): Observable<StopImpersonationResponse> {
+    return this.http.post<StopImpersonationResponse>('/api/users/impersonation/stop', {});
   }
 }

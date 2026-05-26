@@ -30,7 +30,6 @@ public class AuthController : ControllerBase
     private const string DiscordCurrentUserGuildMemberUrlTemplate = "https://discord.com/api/users/@me/guilds/{0}/member";
     private const string DiscordStateCookieName = "discord_oauth_state";
     private const string DiscordReturnUrlCookieName = "discord_oauth_return_url";
-    private const string RegistrationStatusClaimType = "infinity:registration_status";
     private const string RegistrationStatusPending = "pending";
     private const string RegistrationStatusComplete = "complete";
     private const string HorizonCharacterDataSource = "horizon-api";
@@ -176,7 +175,7 @@ public class AuthController : ControllerBase
         }
 
         var hasExistingUsers = await _dbContext.Users.AnyAsync();
-        var defaultRole = hasExistingUsers ? AppRoles.Reader : AppRoles.Admin;
+        var defaultRole = hasExistingUsers ? AppRoles.Member : AppRoles.Admin;
 
         var pendingUser = new User
         {
@@ -252,8 +251,11 @@ public class AuthController : ControllerBase
             });
         }
 
-        var registrationStatus = user.FindFirstValue(RegistrationStatusClaimType) ?? RegistrationStatusPending;
+        var registrationStatus = user.FindFirstValue(AppClaimTypes.RegistrationStatus) ?? RegistrationStatusPending;
         var role = user.FindFirstValue(ClaimTypes.Role);
+        var effectiveUserId = ParseIntClaim(user, AppClaimTypes.UserId);
+        var impersonatorUserId = ParseIntClaim(user, AppClaimTypes.ImpersonatorUserId);
+        var isImpersonating = impersonatorUserId.HasValue;
         var permissions = user.Claims
             .Where(claim => claim.Type == AppClaimTypes.Permission)
             .Select(claim => claim.Value)
@@ -269,6 +271,11 @@ public class AuthController : ControllerBase
             IsRegistrationComplete = string.Equals(registrationStatus, RegistrationStatusComplete, StringComparison.OrdinalIgnoreCase),
             CanAccessApp = string.Equals(registrationStatus, RegistrationStatusComplete, StringComparison.OrdinalIgnoreCase),
             Role = role,
+            EffectiveUserId = effectiveUserId,
+            EffectiveDiscordId = user.FindFirstValue(ClaimTypes.NameIdentifier),
+            IsImpersonating = isImpersonating,
+            ImpersonatorUserId = impersonatorUserId,
+            ImpersonatorName = user.FindFirstValue(AppClaimTypes.ImpersonatorDisplayName),
             Permissions = permissions,
             Claims = user.Claims.Select(claim => new
             {
@@ -518,7 +525,8 @@ public class AuthController : ControllerBase
         {
             new(ClaimTypes.NameIdentifier, userProfile.DiscordId),
             new(ClaimTypes.Name, pendingRegistration ? userProfile.Username : user.DisplayName),
-            new(RegistrationStatusClaimType, pendingRegistration ? RegistrationStatusPending : RegistrationStatusComplete)
+            new(AppClaimTypes.UserId, user.Id.ToString()),
+            new(AppClaimTypes.RegistrationStatus, pendingRegistration ? RegistrationStatusPending : RegistrationStatusComplete)
         };
 
         if (!string.IsNullOrWhiteSpace(userProfile.Email))
@@ -841,6 +849,19 @@ public class AuthController : ControllerBase
             .OrderBy(characterName => characterName, StringComparer.OrdinalIgnoreCase)
             .Take(3)
             .ToList();
+    }
+
+    private static int? ParseIntClaim(ClaimsPrincipal principal, string claimType)
+    {
+        var value = principal.FindFirstValue(claimType);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return int.TryParse(value, out var parsedValue)
+            ? parsedValue
+            : null;
     }
 
     private sealed record DiscordTokenResponse(string AccessToken, string TokenType);

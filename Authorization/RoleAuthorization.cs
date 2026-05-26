@@ -5,33 +5,38 @@ namespace InfinityCodexWebApp.Authorization;
 public static class AppRoles
 {
     public const string Admin = "Admin";
-    public const string Manager = "Manager";
-    public const string Contributor = "Contributor";
-    public const string Reader = "Reader";
+    public const string Officer = "Officer";
+    public const string Member = "Member";
 
     public static readonly IReadOnlyList<string> All =
     [
         Admin,
-        Manager,
-        Contributor,
-        Reader
+        Officer,
+        Member
     ];
 }
 
 public static class AppClaimTypes
 {
+    public const string UserId = "infinity:user_id";
     public const string Permission = "infinity:permission";
+    public const string RegistrationStatus = "infinity:registration_status";
+    public const string ImpersonatorUserId = "infinity:impersonator_user_id";
+    public const string ImpersonatorDiscordId = "infinity:impersonator_discord_id";
+    public const string ImpersonatorDisplayName = "infinity:impersonator_display_name";
 }
 
 public static class AppPermissions
 {
     public const string ManageDkp = "dkp.manage";
+    public const string ManagePlayers = "players.manage";
     public const string ManageUsers = "users.manage";
     public const string ManageRoles = "roles.manage";
 
     public static readonly IReadOnlyList<string> All =
     [
         ManageDkp,
+        ManagePlayers,
         ManageUsers,
         ManageRoles
     ];
@@ -42,10 +47,9 @@ public static class RolePermissions
     private static readonly IReadOnlyDictionary<string, string[]> PermissionByRole =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
-            [AppRoles.Admin] = [AppPermissions.ManageDkp, AppPermissions.ManageUsers, AppPermissions.ManageRoles],
-            [AppRoles.Manager] = [AppPermissions.ManageDkp, AppPermissions.ManageUsers],
-            [AppRoles.Contributor] = [],
-            [AppRoles.Reader] = []
+            [AppRoles.Admin] = [AppPermissions.ManageDkp, AppPermissions.ManagePlayers, AppPermissions.ManageUsers, AppPermissions.ManageRoles],
+            [AppRoles.Officer] = [AppPermissions.ManageDkp, AppPermissions.ManagePlayers],
+            [AppRoles.Member] = []
         };
 
     public static bool IsValidRole(string? role)
@@ -75,17 +79,13 @@ public static class RolePermissions
 public static class AuthorizationPolicies
 {
     public const string RequireAdmin = "RequireAdmin";
-    public const string RequireManager = "RequireManager";
-    public const string RequireManagerOrAdmin = "RequireManagerOrAdmin";
-    public const string RequireContributor = "RequireContributor";
-    public const string RequireReader = "RequireReader";
+    public const string RequireOfficer = "RequireOfficer";
+    public const string RequireOfficerOrAdmin = "RequireOfficerOrAdmin";
 
     public static void AddRoleBasedPolicies(this AuthorizationOptions options)
     {
         options.AddPolicy(RequireAdmin, policy => policy.RequireRole(AppRoles.Admin));
-        options.AddPolicy(RequireManager, policy => policy.RequireRole(AppRoles.Manager));
-        options.AddPolicy(RequireManagerOrAdmin, policy => policy.RequireRole(AppRoles.Admin, AppRoles.Manager));
-        options.AddPolicy(RequireContributor, policy => policy.RequireRole(AppRoles.Contributor));
-        options.AddPolicy(RequireReader, policy => policy.RequireRole(AppRoles.Reader));
+        options.AddPolicy(RequireOfficer, policy => policy.RequireRole(AppRoles.Officer));
+        options.AddPolicy(RequireOfficerOrAdmin, policy => policy.RequireRole(AppRoles.Admin, AppRoles.Officer));
     }
 }

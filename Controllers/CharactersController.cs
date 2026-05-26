@@ -20,6 +20,7 @@ public sealed class CharactersController(
 {
     private const string WishlistStateNeeded = "needed";
     private const int MissionTextMaxLength = 128;
+    private const string HorizonDataSource = "horizon-api";
 
     [HttpGet("search")]
     public async Task<IActionResult> Search([FromQuery] string? search, CancellationToken cancellationToken)
@@ -74,21 +75,39 @@ public sealed class CharactersController(
     }
 
     [HttpGet("workspace")]
-    public async Task<IActionResult> GetWorkspaceCharacters(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetWorkspaceCharacters([FromQuery] int? userId, CancellationToken cancellationToken)
     {
-        var user = await GetCurrentUserAsync(cancellationToken);
-        if (user is null)
+        var currentUser = await GetCurrentUserAsync(cancellationToken);
+        if (currentUser is null)
         {
             return Unauthorized(new { message = "User session could not be resolved." });
         }
 
-        if (!user.IsActive)
+        if (!currentUser.IsActive)
         {
             return Forbid();
         }
 
+        int targetUserId = userId ?? currentUser.Id;
+
+        User targetUser;
+        if (targetUserId == currentUser.Id)
+        {
+            targetUser = currentUser;
+        }
+        else
+        {
+            var foundUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == targetUserId, cancellationToken);
+            if (foundUser is null)
+            {
+                return NotFound(new { message = "User was not found." });
+            }
+
+            targetUser = foundUser;
+        }
+
         List<Character> characterEntities = await dbContext.Characters
-            .Where(character => character.OwnerUserId == user.Id && character.IsActive)
+            .Where(character => character.OwnerUserId == targetUserId && character.IsActive)
             .OrderBy(character => character.Name)
             .ToListAsync(cancellationToken);
 
@@ -99,7 +118,7 @@ public sealed class CharactersController(
                 character.IsActive,
                 character.PortraitUrl,
                 character.LastSyncedAt,
-                user.DkpBalance))
+                targetUser.DkpBalance))
             .ToList();
 
         int? mainCharacterId = characterEntities.FirstOrDefault(c => c.IsMain)?.Id;
@@ -124,7 +143,7 @@ public sealed class CharactersController(
         Character? character = await dbContext.Characters
             .FirstOrDefaultAsync(c => c.Id == characterId && c.IsActive, cancellationToken);
 
-        if (character is null || !CanAccessCharacter(user, character))
+        if (character is null || character.OwnerUserId != user.Id)
         {
             return NotFound(new { message = "Character was not found." });
         }
@@ -156,7 +175,7 @@ public sealed class CharactersController(
         var character = await dbContext.Characters
             .FirstOrDefaultAsync(entity => entity.Id == characterId && entity.IsActive, cancellationToken);
 
-        if (character is null || !CanAccessCharacter(user, character))
+        if (character is null)
         {
             return NotFound(new { message = "Character was not found." });
         }
@@ -206,25 +225,32 @@ public sealed class CharactersController(
         HorizonCharacterDetailResponse? horizonResponse = null;
         string? horizonError = null;
 
-        try
+        if (character.DataSource == HorizonDataSource)
         {
-            var horizonCharacter = await horizonCharacterLookupClient.GetCharacterAsync(character.Name, cancellationToken);
-            if (horizonCharacter is null)
+            try
             {
-                horizonError = "Character details could not be found on HorizonXI.";
+                var horizonCharacter = await horizonCharacterLookupClient.GetCharacterAsync(character.Name, cancellationToken);
+                if (horizonCharacter is null)
+                {
+                    horizonError = "Character details could not be found on HorizonXI.";
+                }
+                else
+                {
+                    horizonResponse = MapHorizonCharacter(horizonCharacter);
+                    character.PortraitUrl = horizonCharacter.PortraitUrl;
+                    character.LastSyncedAt = DateTime.UtcNow;
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
             }
-            else
+            catch (HttpRequestException ex)
             {
-                horizonResponse = MapHorizonCharacter(horizonCharacter);
-                character.PortraitUrl = horizonCharacter.PortraitUrl;
-                character.LastSyncedAt = DateTime.UtcNow;
-                await dbContext.SaveChangesAsync(cancellationToken);
+                logger.LogWarning(ex, "Unable to load Horizon detail for character {CharacterName}", character.Name);
+                horizonError = "Live HorizonXI data is temporarily unavailable.";
             }
         }
-        catch (HttpRequestException ex)
+        else
         {
-            logger.LogWarning(ex, "Unable to load Horizon detail for character {CharacterName}", character.Name);
-            horizonError = "Live HorizonXI data is temporarily unavailable.";
+            horizonResponse = BuildSyntheticHorizonResponse(character);
         }
 
         var allowedJobsByItem = allowedJobsTask.Result
@@ -591,7 +617,7 @@ public sealed class CharactersController(
         }
 
         return user.IsActive
-            && RolePermissions.RoleHasPermission(user.Role, AppPermissions.ManageUsers);
+            && RolePermissions.RoleHasPermission(user.Role, AppPermissions.ManagePlayers);
     }
 
     private static string? NormalizeMissionValue(string? value)
@@ -603,6 +629,49 @@ public sealed class CharactersController(
     private static bool ValidateMissionLength(string? value)
     {
         return value is null || value.Length <= MissionTextMaxLength;
+    }
+
+    private static HorizonCharacterDetailResponse BuildSyntheticHorizonResponse(Character character)
+    {
+        var rawJobs = new (string Code, int? Level)[]
+        {
+            ("WAR", character.JobWarLevel),
+            ("MNK", character.JobMnkLevel),
+            ("WHM", character.JobWhmLevel),
+            ("BLM", character.JobBlmLevel),
+            ("RDM", character.JobRdmLevel),
+            ("THF", character.JobThfLevel),
+            ("PLD", character.JobPldLevel),
+            ("DRK", character.JobDrkLevel),
+            ("BST", character.JobBstLevel),
+            ("BRD", character.JobBrdLevel),
+            ("RNG", character.JobRngLevel),
+            ("SAM", character.JobSamLevel),
+            ("NIN", character.JobNinLevel),
+            ("DRG", character.JobDrgLevel),
+            ("SMN", character.JobSmnLevel),
+        };
+
+        var jobs = rawJobs
+            .Where(j => j.Level.HasValue)
+            .OrderByDescending(j => j.Level)
+            .ThenBy(j => j.Code)
+            .Select(j => new HorizonJobLevelResponse(j.Code, j.Level!.Value))
+            .ToList();
+
+        return new HorizonCharacterDetailResponse(
+            character.Name,
+            Nation: null,
+            Rank: null,
+            Mentor: false,
+            Settings: null,
+            JobString: null,
+            Avatar: null,
+            PortraitUrl: character.PortraitUrl,
+            SeacomType: null,
+            SeacomMessage: null,
+            Online: false,
+            jobs);
     }
 
     private static HorizonCharacterDetailResponse MapHorizonCharacter(HorizonCharacterDetailResult character)

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import {
   DkpTransactionEntry,
   CharacterDynamisClears,
@@ -35,6 +36,7 @@ export interface DkpHistoryEntry {
 export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   private readonly characterWorkspaceService = inject(CharacterWorkspaceService);
   private readonly authService = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
   private readonly previewWishlistItems: CharacterWishlistItem[] = [
     {
       itemId: 900001,
@@ -133,6 +135,20 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   protected readonly dynamisError = signal<string | null>(null);
   protected readonly wishlistError = signal<string | null>(null);
 
+  protected readonly viewedUserId = signal<number | null>(null);
+
+  // True when the profile being viewed belongs to the logged-in user.
+  protected readonly isOwnProfile = computed(() => {
+    const viewedId = this.viewedUserId();
+    const myId = this.authService.session()?.effectiveUserId ?? null;
+    return viewedId !== null && viewedId === myId;
+  });
+
+  // Editable when viewing your own profile, or when you hold player management permissions.
+  protected readonly canEditDetail = computed(() => {
+    return this.isOwnProfile() || this.authService.canManagePlayers();
+  });
+
   // DKP-specific state
   protected readonly canManageDkp = computed(() => {
     return this.authService.canManageDkp();
@@ -178,7 +194,19 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
   });
 
   public ngOnInit(): void {
-    this.loadCharacters();
+    const idParam = this.route.snapshot.paramMap.get('userId');
+    const resolvedUserId = idParam !== null
+      ? Number(idParam)
+      : (this.authService.session()?.effectiveUserId ?? null);
+
+    if (!resolvedUserId || Number.isNaN(resolvedUserId)) {
+      this.pageError.set('Unable to determine which profile to load.');
+      this.isLoadingCharacters.set(false);
+      return;
+    }
+
+    this.viewedUserId.set(resolvedUserId);
+    this.loadCharacters(resolvedUserId);
   }
 
   public ngOnDestroy(): void {
@@ -443,11 +471,11 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
     return 'Up to date';
   }
 
-  private loadCharacters(): void {
+  private loadCharacters(userId: number): void {
     this.isLoadingCharacters.set(true);
     this.pageError.set(null);
 
-    this.characterWorkspaceService.getCharacters().subscribe({
+    this.characterWorkspaceService.getCharacters(userId).subscribe({
       next: (response) => {
         const characters = response.characters ?? [];
         this.characters.set(characters);
@@ -465,7 +493,7 @@ export class CharacterWorkspaceComponent implements OnInit, OnDestroy {
         this.selectCharacter(preferredCharacterId);
       },
       error: (error: { error?: { message?: string } }) => {
-        this.pageError.set(error.error?.message ?? 'Unable to load your characters.');
+        this.pageError.set(error.error?.message ?? 'Unable to load characters for this profile.');
         this.isLoadingCharacters.set(false);
       }
     });

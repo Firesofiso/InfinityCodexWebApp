@@ -20,6 +20,7 @@ export const routes: Routes = [
         children: [
             { path: '', redirectTo: 'characters', pathMatch: 'full' },
             { path: 'characters', component: CharacterWorkspaceComponent, data: { sectionLabel: 'Characters' } },
+            { path: 'characters/:userId', component: CharacterWorkspaceComponent, data: { sectionLabel: 'Character' } },
             { path: 'roster', component: RosterComponent, data: { sectionLabel: 'Roster' } },
             { path: 'access', component: AccessManagementComponent, data: { sectionLabel: 'Roles & Permissions' } },
             { path: 'catalog', component: ItemCatalogComponent, data: { sectionLabel: 'Item Catalog' } },

@@ -153,8 +153,9 @@ export class CharacterWorkspaceService {
   private readonly apiUrl = '/api/characters/workspace';
   private readonly http = inject(HttpClient);
 
-  public getCharacters(): Observable<CharacterWorkspaceListResponse> {
+  public getCharacters(userId?: number): Observable<CharacterWorkspaceListResponse> {
     return this.http.get<CharacterWorkspaceListResponse>(this.apiUrl, {
+      params: userId !== undefined ? { userId } : undefined,
       withCredentials: true
     });
   }

@@ -4,14 +4,14 @@
       <div class="mb-2 flex items-center justify-between gap-2 px-1">
         <h4 class="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-white/45">Characters</h4>
         <button
-          *ngIf="selectedCharacterId !== null && !isMainCharacter(selectedCharacterId)"
+          *ngIf="isOwnProfile && selectedCharacterId !== null && !isMainCharacter(selectedCharacterId)"
           type="button"
           class="main-character-action cursor-pointer"
           (click)="setSelectedAsMainCharacter()"
         >
           Set as main
         </button>
-        <span *ngIf="selectedCharacterId !== null && isMainCharacter(selectedCharacterId)" class="main-character-label">
+        <span *ngIf="isOwnProfile && selectedCharacterId !== null && isMainCharacter(selectedCharacterId)" class="main-character-label">
           Main character
         </span>
       </div>
@@ -86,14 +86,20 @@
       <div>
         <div class="text-xs uppercase tracking-[0.2em] text-white/40 mb-2">Cities</div>
         <div class="grid grid-cols-2 gap-2">
-          <label *ngFor="let zone of dynamisCityZones" class="flex items-center gap-2 cursor-pointer">
+          <label
+            *ngFor="let zone of dynamisCityZones"
+            class="flex items-center gap-2"
+            [class.cursor-pointer]="canEdit"
+            [class.cursor-not-allowed]="!canEdit"
+          >
             <input
               type="checkbox"
-              class="rounded border-white/20 bg-white/5 text-cyan-400"
+              class="rounded border-white/20 bg-white/5 text-cyan-400 disabled:opacity-40"
               [checked]="dynamisDraft[zone.field]"
+              [disabled]="!canEdit"
               (change)="onDynamisToggle(zone.field, $any($event.target).checked)"
             />
-            <span class="text-sm text-white/80">{{ zone.label }}</span>
+            <span class="text-sm" [class.text-white/80]="canEdit" [class.text-white/50]="!canEdit">{{ zone.label }}</span>
           </label>
         </div>
       </div>
@@ -106,17 +112,17 @@
           <label
             *ngFor="let zone of dynamisIcelandZones"
             class="flex items-center gap-2"
-            [class.cursor-pointer]="areIcelandsAccessible"
-            [class.cursor-not-allowed]="!areIcelandsAccessible"
+            [class.cursor-pointer]="canEdit && areIcelandsAccessible"
+            [class.cursor-not-allowed]="!canEdit || !areIcelandsAccessible"
           >
             <input
               type="checkbox"
               class="rounded border-white/20 bg-white/5 text-cyan-400 disabled:opacity-40"
               [checked]="dynamisDraft[zone.field]"
-              [disabled]="!areIcelandsAccessible"
+              [disabled]="!canEdit || !areIcelandsAccessible"
               (change)="onDynamisToggle(zone.field, $any($event.target).checked)"
             />
-            <span class="text-sm" [class.text-white/80]="areIcelandsAccessible" [class.text-white/30]="!areIcelandsAccessible">{{ zone.label }}</span>
+            <span class="text-sm" [class.text-white/80]="canEdit && areIcelandsAccessible" [class.text-white/30]="!canEdit || !areIcelandsAccessible">{{ zone.label }}</span>
           </label>
         </div>
       </div>
@@ -124,14 +130,20 @@
       <div>
         <div class="text-xs uppercase tracking-[0.2em] text-white/40 mb-2">Dreamlands</div>
         <div class="grid grid-cols-2 gap-2">
-          <label *ngFor="let zone of dynamisDreamlandZones" class="flex items-center gap-2 cursor-pointer">
+          <label
+            *ngFor="let zone of dynamisDreamlandZones"
+            class="flex items-center gap-2"
+            [class.cursor-pointer]="canEdit"
+            [class.cursor-not-allowed]="!canEdit"
+          >
             <input
               type="checkbox"
-              class="rounded border-white/20 bg-white/5 text-cyan-400"
+              class="rounded border-white/20 bg-white/5 text-cyan-400 disabled:opacity-40"
               [checked]="dynamisDraft[zone.field]"
+              [disabled]="!canEdit"
               (change)="onDynamisToggle(zone.field, $any($event.target).checked)"
             />
-            <span class="text-sm text-white/80">{{ zone.label }}</span>
+            <span class="text-sm" [class.text-white/80]="canEdit" [class.text-white/50]="!canEdit">{{ zone.label }}</span>
           </label>
         </div>
       </div>
@@ -143,17 +155,17 @@
         <div class="grid grid-cols-2 gap-2">
           <label
             class="flex items-center gap-2"
-            [class.cursor-pointer]="isTavnaziaAccessible"
-            [class.cursor-not-allowed]="!isTavnaziaAccessible"
+            [class.cursor-pointer]="canEdit && isTavnaziaAccessible"
+            [class.cursor-not-allowed]="!canEdit || !isTavnaziaAccessible"
           >
             <input
               type="checkbox"
               class="rounded border-white/20 bg-white/5 text-cyan-400 disabled:opacity-40"
               [checked]="dynamisDraft.dynamisTavnazia"
-              [disabled]="!isTavnaziaAccessible"
+              [disabled]="!canEdit || !isTavnaziaAccessible"
               (change)="onDynamisToggle('dynamisTavnazia', $any($event.target).checked)"
             />
-            <span class="text-sm" [class.text-white/80]="isTavnaziaAccessible" [class.text-white/30]="!isTavnaziaAccessible">Tavnazia</span>
+            <span class="text-sm" [class.text-white/80]="canEdit && isTavnaziaAccessible" [class.text-white/30]="!canEdit || !isTavnaziaAccessible">Tavnazia</span>
           </label>
         </div>
       </div>
@@ -190,6 +202,7 @@
           bindValue="value"
           [searchable]="true"
           [clearable]="true"
+          [disabled]="!canEdit"
           [ngModel]="missionDraft.sandOriaMission"
           (ngModelChange)="onMissionInput('sandOriaMission', $event)"
           placeholder="Current San d'Oria mission">
@@ -205,6 +218,7 @@
           bindValue="value"
           [searchable]="true"
           [clearable]="true"
+          [disabled]="!canEdit"
           [ngModel]="missionDraft.bastokMission"
           (ngModelChange)="onMissionInput('bastokMission', $event)"
           placeholder="Current Bastok mission">
@@ -220,6 +234,7 @@
           bindValue="value"
           [searchable]="true"
           [clearable]="true"
+          [disabled]="!canEdit"
           [ngModel]="missionDraft.windurstMission"
           (ngModelChange)="onMissionInput('windurstMission', $event)"
           placeholder="Current Windurst mission">
@@ -235,6 +250,7 @@
           bindValue="value"
           [searchable]="true"
           [clearable]="true"
+          [disabled]="!canEdit"
           [ngModel]="missionDraft.riseOfTheZilartMission"
           (ngModelChange)="onMissionInput('riseOfTheZilartMission', $event)"
           placeholder="Current Zilart mission">
@@ -250,6 +266,7 @@
           bindValue="value"
           [searchable]="true"
           [clearable]="true"
+          [disabled]="!canEdit"
           [ngModel]="missionDraft.chainsOfPromathiaMission"
           (ngModelChange)="onMissionInput('chainsOfPromathiaMission', $event)"
           placeholder="Current CoP mission">
@@ -265,6 +282,7 @@
           bindValue="value"
           [searchable]="true"
           [clearable]="true"
+          [disabled]="!canEdit"
           [ngModel]="missionDraft.epilogueMission"
           (ngModelChange)="onMissionInput('epilogueMission', $event)"
           placeholder="Current Epilogue mission">

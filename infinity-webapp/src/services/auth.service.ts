@@ -10,6 +10,11 @@ export interface SessionResponse {
     isRegistrationComplete?: boolean;
     canAccessApp?: boolean;
     role?: string | null;
+    effectiveUserId?: number | null;
+    effectiveDiscordId?: string | null;
+    isImpersonating?: boolean;
+    impersonatorUserId?: number | null;
+    impersonatorName?: string | null;
     permissions?: string[];
     claims?: Array<{ type: string; value: string }>;
 }
@@ -36,12 +41,20 @@ export class AuthService {
             return this.hasPermission('dkp.manage');
         }
 
+        public canManagePlayers(): boolean {
+            return this.hasPermission('players.manage');
+        }
+
         public canManageUsers(): boolean {
             return this.hasPermission('users.manage');
         }
 
         public canManageRoles(): boolean {
             return this.hasPermission('roles.manage');
+        }
+
+        public isImpersonating(): boolean {
+            return this.sessionSignal()?.isImpersonating === true;
         }
 
     // Use a relative API path so Angular dev can proxy to the local ASP.NET app and production can stay same-origin.

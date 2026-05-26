@@ -56,6 +56,8 @@
             [dynamisDraft]="dynamisDraft()"
             [dynamisSaveState]="dynamisSaveState()"
             [dynamisError]="dynamisError()"
+            [isOwnProfile]="isOwnProfile()"
+            [canEdit]="canEditDetail()"
             (mainCharacterSelected)="setMainCharacter($event)"
             (characterSelected)="selectCharacter($event)"
             (missionChanged)="updateMission($event.field, $event.value)"
