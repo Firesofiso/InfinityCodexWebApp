@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Node / Angular — the Docker build stage installs its own dependencies
+infinity-webapp/node_modules
+infinity-webapp/dist
+
+# .NET build artifacts — the Docker build stage compiles from scratch
+bin
+obj
+
+# Secrets and local config — never bake these into the image
+.env
+*.env
+appsettings.Development.json
+secrets.json
+
+# IDE and OS noise
+.vs
+.vscode
+.idea
+*.user
+*.suo
+.DS_Store
+Thumbs.db

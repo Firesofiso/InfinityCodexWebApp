@@ -5,6 +5,7 @@ using InfinityCodexWebApp.Data;
 using InfinityCodexWebApp.Integrations.Horizon;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 
@@ -113,6 +114,22 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+// Run migrations and enable WAL mode on every startup.
+// WAL mode allows reads and writes to proceed concurrently without blocking each other.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+    db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
+}
+
+// Trust X-Forwarded-For and X-Forwarded-Proto from nginx so the app sees the real
+// client IP and correct scheme even though it only receives plain HTTP inside Docker.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 // Apply CORS before auth so browser preflight and credentialed requests succeed consistently.
 app.UseCors("AllowAngularDev");
 
@@ -120,9 +137,15 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    // Only redirect to HTTPS in development — nginx handles this in production.
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
+// Serve the Angular SPA from wwwroot in production. In development the Angular CLI
+// dev server runs separately and is proxied, so these are effectively no-ops there.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -130,6 +153,10 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
     .WithName("HealthCheck");
 
 app.MapControllers();
+
+// Any route not matched by a controller falls back to index.html so Angular's
+// client-side router can take over.
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
