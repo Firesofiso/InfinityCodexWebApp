@@ -369,28 +369,70 @@ public class AuthController : ControllerBase
         var normalizedPreferredJobs = NormalizePreferredJobs(request.PreferredJobs);
         var normalizedCharacterNames = NormalizeCharacterNames(request.CharacterNames);
 
-        var existingCharacters = await _dbContext.Characters
-            .Where(character => character.OwnerUserId == user.Id && character.DataSource == HorizonCharacterDataSource)
-            .ToListAsync();
-
         var selectedNames = new HashSet<string>(normalizedCharacterNames, StringComparer.OrdinalIgnoreCase);
+
+        var placeholder = await _dbContext.Characters
+            .Where(c => c.DataSource == "import" && selectedNames.Contains(c.Name))
+            .Join(_dbContext.Users, c => c.OwnerUserId, u => u.Id, (c, u) => new { Character = c, Owner = u })
+            .Where(x => x.Owner.IsImported)
+            .FirstOrDefaultAsync();
+
+        // If a placeholder matches, merge the freshly-created shell user INTO the placeholder's
+        // record: update its DiscordId and fields, then delete the shell. EF processes DELETEs
+        // before UPDATEs in a single SaveChangesAsync, so the DiscordId unique constraint
+        // resolves cleanly without any ordering tricks.
+        User targetUser;
+
+        if (placeholder is not null)
+        {
+            targetUser = placeholder.Owner;
+            targetUser.DiscordId = discordId;
+            targetUser.DisplayName = displayName;
+            targetUser.Role = user.Role;
+            targetUser.IsActive = true;
+            targetUser.IsRegistrationComplete = true;
+            targetUser.RegistrationCompletedAt = DateTime.UtcNow;
+            targetUser.IsImported = false;
+
+            placeholder.Character.IsActive = true;
+            placeholder.Character.DataSource = HorizonCharacterDataSource;
+            placeholder.Character.LastSyncedAt = DateTime.UtcNow;
+
+            _dbContext.Users.Remove(user);
+        }
+        else
+        {
+            targetUser = user;
+            targetUser.DisplayName = displayName;
+            targetUser.IsRegistrationComplete = true;
+            targetUser.RegistrationCompletedAt = DateTime.UtcNow;
+        }
+
+        // Activate or deactivate any horizon-api characters already owned by targetUser
+        var existingCharacters = await _dbContext.Characters
+            .Where(c => c.OwnerUserId == targetUser.Id && c.DataSource == HorizonCharacterDataSource)
+            .ToListAsync();
 
         foreach (var existingCharacter in existingCharacters)
         {
-            if (selectedNames.Contains(existingCharacter.Name))
+            existingCharacter.IsActive = selectedNames.Contains(existingCharacter.Name);
+            if (existingCharacter.IsActive)
             {
-                existingCharacter.IsActive = true;
                 existingCharacter.LastSyncedAt = DateTime.UtcNow;
-                continue;
             }
-
-            existingCharacter.IsActive = false;
         }
 
-        var existingNameSet = new HashSet<string>(existingCharacters.Select(character => character.Name), StringComparer.OrdinalIgnoreCase);
+        var handledNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (placeholder is not null)
+        {
+            handledNames.Add(placeholder.Character.Name);
+        }
+
+        var existingNameSet = new HashSet<string>(existingCharacters.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+
         foreach (var characterName in normalizedCharacterNames)
         {
-            if (existingNameSet.Contains(characterName))
+            if (handledNames.Contains(characterName) || existingNameSet.Contains(characterName))
             {
                 continue;
             }
@@ -398,19 +440,15 @@ public class AuthController : ControllerBase
             _dbContext.Characters.Add(new Character
             {
                 Name = characterName,
-                OwnerUserId = user.Id,
+                OwnerUserId = targetUser.Id,
                 IsActive = true,
                 DataSource = HorizonCharacterDataSource,
                 LastSyncedAt = DateTime.UtcNow
             });
         }
 
-        user.DisplayName = displayName;
-        user.IsRegistrationComplete = true;
-        user.RegistrationCompletedAt = DateTime.UtcNow;
-
         var existingPreferredJobs = await _dbContext.UserPreferredJobs
-            .Where(entity => entity.UserId == user.Id)
+            .Where(entity => entity.UserId == targetUser.Id)
             .ToListAsync();
 
         if (existingPreferredJobs.Count > 0)
@@ -422,7 +460,7 @@ public class AuthController : ControllerBase
         {
             _dbContext.UserPreferredJobs.Add(new UserPreferredJob
             {
-                UserId = user.Id,
+                UserId = targetUser.Id,
                 JobCode = jobCode
             });
         }
@@ -430,11 +468,11 @@ public class AuthController : ControllerBase
         await _dbContext.SaveChangesAsync();
 
         var currentProfile = new DiscordUserProfile(
-            user.DiscordId,
-            User.Identity?.Name ?? user.DisplayName,
+            targetUser.DiscordId,
+            User.Identity?.Name ?? targetUser.DisplayName,
             User.FindFirstValue(ClaimTypes.Email));
 
-        await SignInUserAsync(user, currentProfile, pendingRegistration: false);
+        await SignInUserAsync(targetUser, currentProfile, pendingRegistration: false);
 
         return Ok(new
         {

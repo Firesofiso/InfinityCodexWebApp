@@ -67,10 +67,6 @@ export class RosterComponent implements OnInit {
       format: (value) => value != null ? String(value) : '—'
     },
     {
-      key: 'discordAlias',
-      header: 'Discord'
-    },
-    {
       key: 'preferredJobs',
       header: 'Preferred Jobs'
     },

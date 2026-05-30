@@ -3,7 +3,7 @@
   sudo usermod -aG docker $USER   # re-login after this
 
   # 2. Clone the repo to the deploy location
-  sudo git clone https://github.com/YOUR_USERNAME/infinity-codex /opt/infinity-codex
+  sudo git clone https://github.com/Firesofiso/infinity-codex /opt/infinity-codex
   cd /opt/infinity-codex
 
   # 3. Copy and fill in your secrets
@@ -16,10 +16,10 @@
   # 5. Get your TLS cert BEFORE starting nginx with SSL config
   # (certbot standalone briefly listens on port 80)
   sudo apt install certbot
-  sudo certbot certonly --standalone -d YOUR_DOMAIN
+  sudo certbot certonly --standalone -d infinityls.com
 
   # 6. Replace YOUR_DOMAIN in nginx.conf
-  sed -i 's/YOUR_DOMAIN/your-actual-domain.com/g' nginx.conf
+  sed -i 's/infinityls/infinityls.com/g' nginx.conf
 
   # 7. Start the stack
   docker compose up -d

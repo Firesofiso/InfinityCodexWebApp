@@ -313,7 +313,7 @@ public sealed class UsersController(
         }
 
         List<User> users = await dbContext.Users
-            .Where(u => u.IsActive && u.IsRegistrationComplete)
+            .Where(u => u.IsActive)
             .OrderBy(u => u.DisplayName)
             .ToListAsync(cancellationToken);
 

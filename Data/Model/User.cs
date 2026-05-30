@@ -21,6 +21,8 @@ public class User
 
     public bool IsRegistrationComplete { get; set; }
 
+    public bool IsImported { get; set; }
+
     public int DkpBalance { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

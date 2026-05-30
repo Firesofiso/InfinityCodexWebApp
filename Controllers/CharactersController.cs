@@ -220,7 +220,12 @@ public sealed class CharactersController(
                                    contentGroup.Name))
             .ToListAsync(cancellationToken);
 
-        await Task.WhenAll(selectedItemIdsTask, wishlistAssignmentsTask, activeItemsTask, allowedJobsTask, itemSourcesTask);
+        var ownerDkpBalanceTask = dbContext.Users
+            .Where(u => u.Id == character.OwnerUserId)
+            .Select(u => u.DkpBalance)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        await Task.WhenAll(selectedItemIdsTask, wishlistAssignmentsTask, activeItemsTask, allowedJobsTask, itemSourcesTask, ownerDkpBalanceTask);
 
         HorizonCharacterDetailResponse? horizonResponse = null;
         string? horizonError = null;
@@ -302,7 +307,7 @@ public sealed class CharactersController(
             .ToList();
 
         return Ok(new CharacterWorkspaceDetailResponse(
-            new CharacterWorkspaceListItemResponse(character.Id, character.Name, character.IsActive, character.PortraitUrl, character.LastSyncedAt, user.DkpBalance),
+            new CharacterWorkspaceListItemResponse(character.Id, character.Name, character.IsActive, character.PortraitUrl, character.LastSyncedAt, ownerDkpBalanceTask.Result),
             horizonResponse,
             horizonError,
             new CharacterMissionProgressResponse(

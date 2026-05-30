@@ -1,5 +1,13 @@
 # Claude Code Guidelines
 
+## Codebase Navigation
+
+Before searching for files with grep or glob, read **`docs/file-map.md`** in the repo root.
+It lists every controller, model, service, Angular component, route, guard, and import script
+with the file path, route prefix / URL, and a one-line description of what each does.
+
+---
+
 ## Core Philosophy
 
 Write code for the next person who has to read it — not for the machine that runs it.

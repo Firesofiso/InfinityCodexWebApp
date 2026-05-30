@@ -78,3 +78,5 @@ coverage/
 ImportDocuments
 Migrations/sql
 InfinityCodexWebApp.csproj.lscache
+db/__pycache__
+app.db.bak2
